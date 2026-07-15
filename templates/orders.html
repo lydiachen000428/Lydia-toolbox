@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訂單篩選</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;background:#faf9f6;color:#1a1a1a;margin:0;display:flex;flex-direction:row;}
+  .app{max-width:780px;margin:0 auto}
+  h1{font-size:18px;font-weight:500;margin-bottom:20px;color:#1a1a1a}
+  .card{background:#fff;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;padding:1rem 1.25rem;margin-bottom:12px}
+  .section-title{font-size:11px;color:#888;letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
+  .drop-zone{border:1.5px dashed rgba(0,0,0,0.2);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:background .15s;margin-bottom:12px}
+  .drop-zone:hover,.drop-zone.drag-over{background:#f0ede6}
+  .drop-zone i{font-size:28px;color:#aaa;display:block;margin-bottom:8px}
+  .drop-zone p{margin:0;color:#666;font-size:13px}
+  .drop-zone small{color:#aaa;font-size:11px}
+  .date-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  .field-label{font-size:12px;color:#666;margin-bottom:4px}
+  input[type=date]{width:100%;padding:7px 10px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;font-size:13px;background:#fff;color:#1a1a1a}
+  input[type=date]:focus{outline:none;border-color:#c17f3b}
+  .btn{background:#fff;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;padding:9px 20px;font-size:13px;cursor:pointer;color:#1a1a1a;width:100%;transition:background .1s;margin-bottom:4px}
+  .btn:hover{background:#f0ede6}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-primary{background:#c17f3b;color:#fff;border-color:#c17f3b}
+  .btn-primary:hover{background:#a8682a}
+  .btn-primary:disabled{background:#ccc;border-color:#ccc}
+  .btn-outline{border-color:#c17f3b;color:#c17f3b}
+  .btn-outline:hover{background:#faeeda}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .stat{background:#f5f5f3;border-radius:8px;padding:10px 12px}
+  .stat-val{font-size:20px;font-weight:500;color:#1a1a1a}
+  .stat-lbl{font-size:11px;color:#aaa;margin-top:2px}
+  .table-wrap{overflow-x:auto;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:6px 8px;border-bottom:0.5px solid rgba(0,0,0,0.15);color:#888;font-weight:500;font-size:11px;white-space:nowrap}
+  td{padding:6px 8px;border-bottom:0.5px solid rgba(0,0,0,0.07);color:#1a1a1a;word-break:break-word}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#fdf8f3}
+  .copy-btn{font-size:11px;padding:5px 14px;border:0.5px solid rgba(0,0,0,0.15);border-radius:8px;background:transparent;cursor:pointer;color:#666;margin-right:6px}
+  .copy-btn:hover{background:#f0ede6}
+  .step{display:flex;gap:10px;align-items:flex-start;margin-bottom:16px}
+  .step-num{width:24px;height:24px;border-radius:50%;background:#f0ede6;border:0.5px solid rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#888;flex-shrink:0;margin-top:1px}
+  .step-num.active{background:#faeeda;color:#854f0b;border-color:#f5c275}
+  .step-num.done{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
+  .step-body{flex:1}
+  .step-title{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:6px}
+  .msg{padding:10px 12px;border-radius:8px;font-size:12px;margin-top:8px}
+  .msg-info{background:#faeeda;color:#854f0b}
+  .msg-success{background:#eaf3de;color:#3b6d11}
+  .msg-warn{background:#faeeda;color:#854f0b}
+  .msg-error{background:#fde8e8;color:#c0392b}
+  .hidden{display:none}
+  .divider{border:none;border-top:0.5px solid rgba(0,0,0,0.1);margin:16px 0}
+  .file-name{font-size:12px;color:#666;margin-top:6px;text-align:center}
+  .po-block{margin-bottom:10px;padding:10px 12px;background:#faf9f6;border-radius:8px;border-left:2px solid #c17f3b}
+  .po-detail{font-size:12px;color:#555;line-height:1.6;white-space:pre-wrap;font-family:monospace}
+
+  /* ── Shared Sidebar ─────────────────────────────────── */
+  .page-wrapper { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 200px; min-height: 100vh; background: #f5f4f0;
+    border-right: 1px solid #e0ddd6; display: flex;
+    flex-direction: column; flex-shrink: 0; position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar-brand {
+    padding: 1.4rem 1.2rem 1rem; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: #aaa;
+  }
+  .sidebar .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0.6rem 1.2rem; font-size: 13.5px; color: #444;
+    text-decoration: none; border-right: 3px solid transparent;
+    transition: background 0.12s, color 0.12s;
+  }
+  .sidebar .nav-item:hover { background: #edeae4; color: #1a1a1a; }
+  .sidebar .nav-item.active {
+    color: #c17f3b; border-right-color: #c17f3b; font-weight: 500; background: #edeae4;
+  }
+  .sidebar .nav-item.disabled { color: #bbb; pointer-events: none; }
+  .sidebar .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .sidebar .nav-badge {
+    margin-left: auto; font-size: 9px; background: #e8e4dc;
+    color: #999; padding: 1px 5px; border-radius: 3px;
+  }
+  .page-content { flex: 1; overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+<nav class="sidebar">
+  <div class="sidebar-brand">Lydia's Toolbox</div>
+  <a class="nav-item" href="../index.html"><span class="nav-icon">🏠</span> 首頁</a>
+  <a class="nav-item" href="packing_list.html"><span class="nav-icon">📦</span> Packing List</a>
+  <a class="nav-item disabled" href="#"><span class="nav-icon">🗃️</span> 料號資料庫<span class="nav-badge">本機</span></a>
+  <a class="nav-item" href="currency_v2.html"><span class="nav-icon">💱</span> 匯率換算</a>
+  <a class="nav-item" href="cbp_v2.html"><span class="nav-icon">🛃</span> CBP 助手</a>
+  <a class="nav-item active" href="orders.html"><span class="nav-icon">📋</span> 訂單篩選</a>
+</nav>
+<div class="page-content" style="padding:24px;flex:1">
+<div class="app">
+  <h1><i class="ti ti-filter" style="font-size:18px;vertical-align:-2px;margin-right:6px" aria-hidden="true"></i>訂單篩選</h1>
+
+  <div class="step">
+    <div class="step-num active" id="s1">1</div>
+    <div class="step-body">
+      <div class="step-title">上傳訂單追蹤表（.xls / .xlsx）</div>
+      <div class="drop-zone" id="dropZone">
+        <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
+        <p>拖曳檔案到這裡</p>
+        <small>或點此選擇檔案</small>
+        <input type="file" id="fileInput" accept=".xls,.xlsx" style="display:none">
+      </div>
+      <div class="file-name hidden" id="fileName"></div>
+      <div id="step1Msg" class="hidden"></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num" id="s2">2</div>
+    <div class="step-body">
+      <div class="step-title">設定出貨日期範圍（Shipment ready date）</div>
+      <div class="date-row" style="margin-top:8px">
+        <div><div class="field-label">開始日期</div><input type="date" id="startDate"></div>
+        <div><div class="field-label">結束日期</div><input type="date" id="endDate"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="copy-btn" onclick="setRange('thisWeek')">本週</button>
+        <button class="copy-btn" onclick="setRange('nextWeek')">下週</button>
+        <button class="copy-btn" onclick="setRange('thisMonth')">本月</button>
+        <button class="copy-btn" onclick="setRange('nextMonth')">下月</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num" id="s3">3</div>
+    <div class="step-body">
+      <div class="step-title">篩選訂單</div>
+      <button class="btn btn-primary" id="filterBtn" disabled onclick="runFilter()">
+        <i class="ti ti-filter" aria-hidden="true"></i> 開始篩選
+      </button>
+      <div id="filterMsg" class="hidden"></div>
+    </div>
+  </div>
+
+  <div id="resultSection" class="hidden">
+    <hr class="divider">
+    <div class="stat-row">
+      <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-lbl">篩選筆數</div></div>
+      <div class="stat"><div class="stat-val" id="statDays">0</div><div class="stat-lbl">涵蓋天數</div></div>
+      <div class="stat"><div class="stat-val" id="statQty">0</div><div class="stat-lbl">總數量 (PCS)</div></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">篩選結果</div>
+      <div class="table-wrap">
+        <table id="resultTable">
+          <thead id="resultHead"></thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="copy-btn" onclick="copyTable()"><i class="ti ti-copy" aria-hidden="true"></i> 複製表格</button>
+        <button class="copy-btn" onclick="downloadExcel()"><i class="ti ti-download" aria-hidden="true"></i> 下載 Excel</button>
+      </div>
+    </div>
+
+    <div class="step" style="margin-top:4px">
+      <div class="step-num" id="s4">4</div>
+      <div class="step-body">
+        <div class="step-title">複製 Outlook 查詢清單</div>
+        <div id="outlookList" class="hidden"></div>
+        <button class="btn btn-outline" id="outlookBtn" onclick="showOutlookList()" style="margin-top:8px">
+          <i class="ti ti-mail-search" aria-hidden="true"></i> 產生 Outlook 查詢清單
+        </button>
+        <div id="outlookMsg" class="hidden"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+var parsedRows=[], filteredRows=[], headers=[], workbook=null, sheetName='', origFile=null;
+
+var dropZone=document.getElementById('dropZone');
+var fileInput=document.getElementById('fileInput');
+dropZone.addEventListener('click',function(){fileInput.click();});
+dropZone.addEventListener('dragover',function(e){e.preventDefault();dropZone.classList.add('drag-over');});
+dropZone.addEventListener('dragleave',function(){dropZone.classList.remove('drag-over');});
+dropZone.addEventListener('drop',function(e){e.preventDefault();dropZone.classList.remove('drag-over');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change',function(){if(fileInput.files[0])handleFile(fileInput.files[0]);});
+
+function handleFile(f){
+  origFile=f;  // 保留原始檔，下載時交給後端以保留格式
+  document.getElementById('fileName').textContent='已載入：'+f.name;
+  document.getElementById('fileName').classList.remove('hidden');
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var data=new Uint8Array(e.target.result);
+    workbook=XLSX.read(data,{type:'array',cellDates:true});
+    sheetName=workbook.SheetNames.find(function(s){return s.toUpperCase().indexOf('SCOSCHE')>-1;})||workbook.SheetNames[0];
+    var raw=XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{header:1,defval:'',raw:false,dateNF:'yyyy-mm-dd'});
+    headers=[];parsedRows=[];
+    var hRow=1;
+    for(var c=0;c<(raw[hRow]||[]).length;c++){
+      var h=(raw[hRow][c]||'').toString().trim();
+      var h2=raw[2]?(raw[2][c]||'').toString().trim():'';
+      headers.push(h||h2||'Col'+c);
+    }
+    for(var r=3;r<raw.length;r++){if(raw[r].some(function(v){return v!=='';}))parsedRows.push(raw[r]);}
+    document.getElementById('s1').className='step-num done';
+    document.getElementById('s2').className='step-num active';
+    document.getElementById('filterBtn').disabled=false;
+    showMsg('step1Msg','已讀取 '+parsedRows.length+' 筆訂單（'+sheetName+' Sheet）','success');
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+// ── 日期快捷鈕與記憶 ──
+function fmtDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function setRange(type){
+  var now=new Date(), s, e;
+  if(type==='thisWeek'||type==='nextWeek'){
+    var dow=(now.getDay()+6)%7;                       // 週一=0
+    s=new Date(now); s.setDate(now.getDate()-dow);    // 本週一
+    if(type==='nextWeek') s.setDate(s.getDate()+7);
+    e=new Date(s); e.setDate(s.getDate()+6);          // 週日
+  }else{
+    var m=now.getMonth()+(type==='nextMonth'?1:0);
+    s=new Date(now.getFullYear(),m,1);
+    e=new Date(now.getFullYear(),m+1,0);              // 月底
+  }
+  document.getElementById('startDate').value=fmtDate(s);
+  document.getElementById('endDate').value=fmtDate(e);
+  saveRange();
+}
+function saveRange(){
+  try{
+    localStorage.setItem('orders_start',document.getElementById('startDate').value);
+    localStorage.setItem('orders_end',document.getElementById('endDate').value);
+  }catch(err){}
+}
+// 載入時帶回上次的日期範圍
+(function(){
+  try{
+    var s=localStorage.getItem('orders_start'), e=localStorage.getItem('orders_end');
+    if(s)document.getElementById('startDate').value=s;
+    if(e)document.getElementById('endDate').value=e;
+  }catch(err){}
+  document.getElementById('startDate').addEventListener('change',saveRange);
+  document.getElementById('endDate').addEventListener('change',saveRange);
+})();
+
+function readyDateCol(){
+  for(var i=0;i<headers.length;i++){if(headers[i].toLowerCase().indexOf('ready')>-1||headers[i].toLowerCase().indexOf('shipment')>-1)return i;}
+  return 7;
+}
+function parseD(v){if(!v)return null;var d=new Date(v.toString().trim());return isNaN(d)?null:d;}
+
+function runFilter(){
+  var start=document.getElementById('startDate').value;
+  var end=document.getElementById('endDate').value;
+  if(!start||!end){showMsg('filterMsg','請選擇開始和結束日期','warn');return;}
+  var s=new Date(start),e=new Date(end);
+  var col=readyDateCol();
+  filteredRows=parsedRows.filter(function(row){var d=parseD(row[col]);return d&&d>=s&&d<=e;});
+  if(filteredRows.length===0){showMsg('filterMsg','此日期範圍內沒有訂單','warn');return;}
+  showMsg('filterMsg','找到 '+filteredRows.length+' 筆訂單','success');
+  document.getElementById('s2').className='step-num done';
+  document.getElementById('s3').className='step-num done';
+  document.getElementById('s4').className='step-num active';
+  renderStats(filteredRows,col,s,e);
+  renderTable(filteredRows);
+  document.getElementById('resultSection').classList.remove('hidden');
+  document.getElementById('outlookList').classList.add('hidden');
+  document.getElementById('outlookMsg').classList.add('hidden');
+}
+
+function renderStats(rows,col,s,e){
+  document.getElementById('statTotal').textContent=rows.length;
+  document.getElementById('statDays').textContent=Math.round((e-s)/(1000*60*60*24))+1;
+  var qtyCol=headers.findIndex(function(h){return h.toLowerCase().indexOf('qty')>-1||h.toLowerCase().indexOf("q'ty")>-1;});
+  var total=0;rows.forEach(function(r){var v=parseFloat((r[qtyCol]||'').toString().replace(/,/g,''));if(!isNaN(v))total+=v;});
+  document.getElementById('statQty').textContent=total>0?total.toLocaleString():'-';
+}
+
+function escH(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renderTable(rows){
+  document.getElementById('resultHead').innerHTML='<tr>'+headers.map(function(h){return '<th>'+escH(h)+'</th>';}).join('')+'</tr>';
+  document.getElementById('resultBody').innerHTML=rows.map(function(r){return '<tr>'+headers.map(function(_,i){return '<td>'+escH(r[i]||'')+'</td>';}).join('')+'</tr>';}).join('');
+}
+
+function copyTable(){
+  var lines=[headers.join('\t')];
+  filteredRows.forEach(function(r){lines.push(r.join('\t'));});
+  navigator.clipboard.writeText(lines.join('\n')).then(function(){alert('已複製！');});
+}
+
+// 下載走後端 /api/filter_orders（openpyxl），保留原始儲存格格式
+function downloadExcel(){
+  var start=document.getElementById('startDate').value;
+  var end=document.getElementById('endDate').value;
+  if(!origFile){showMsg('filterMsg','請先上傳檔案','warn');return;}
+  if(!start||!end){showMsg('filterMsg','請選擇開始和結束日期','warn');return;}
+  var fd=new FormData();
+  fd.append('file',origFile);
+  fd.append('start',start);
+  fd.append('end',end);
+  showMsg('filterMsg','產生中…','info');
+  fetch('/api/filter_orders',{method:'POST',body:fd})
+    .then(function(r){
+      if(!r.ok)return r.json().then(function(d){throw new Error(d.error||'下載失敗');});
+      return r.blob();
+    })
+    .then(function(blob){
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='filtered_orders_'+start.replace(/-/g,'').slice(4)+'_'+end.replace(/-/g,'').slice(4)+'.xlsx';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showMsg('filterMsg','找到 '+filteredRows.length+' 筆訂單，已下載（保留原始格式）','success');
+    })
+    .catch(function(e){showMsg('filterMsg',e.message,'error');});
+}
+
+function showOutlookList(){
+  var poCol=headers.findIndex(function(h){return h.toLowerCase().indexOf('po')>-1;});
+  var itemCol=headers.findIndex(function(h){return h.toLowerCase().indexOf('item')>-1;});
+  var readyCol=readyDateCol();
+  var lines=[];
+  filteredRows.forEach(function(r){
+    var po=(r[poCol]||'').toString().trim();
+    var item=(r[itemCol]||'').toString().trim();
+    var date=(r[readyCol]||'').toString().trim();
+    if(po)lines.push('PO#'+po+(item?' / '+item:'')+(date?' (交期'+date+')':''));
+  });
+  var text='請用 Outlook 搜尋工具逐一查詢以下每個 PO 號碼。每筆用 PO 號碼當關鍵字搜尋，找出對應郵件後擷取資料；若同一 PO 有多封郵件，取最新一封；找不到的標註「查無資料」。\n\n每筆輸出格式（多筆之間空一行）：\n採購單號：PC813-XXXXXXX\n客人PO#：XXXXXX\n料號／數量：料號 × 數量PCS / 品名\n交期：XXXX/XX/XX\n\n---\n\n'+lines.join('\n');
+  var container=document.getElementById('outlookList');
+  container.innerHTML='<div class="po-block"><div class="po-detail">'+text+'</div></div><button class="copy-btn" id="cpBtn" onclick="copyOutlook(this,\''+encodeURIComponent(text)+'\')"><i class="ti ti-copy" aria-hidden="true"></i> 複製查詢文字</button>';
+  container.classList.remove('hidden');
+  showMsg('outlookMsg','複製後貼到 Claude 對話中即可自動查詢 Outlook','info');
+}
+
+function copyOutlook(btn,encoded){
+  navigator.clipboard.writeText(decodeURIComponent(encoded)).then(function(){btn.textContent='✓ 已複製';setTimeout(function(){btn.innerHTML='<i class="ti ti-copy"></i> 複製查詢文字';},1500);});
+}
+
+function showMsg(id,text,type){
+  var el=document.getElementById(id);
+  el.className='msg msg-'+type;
+  el.textContent=text;
+  el.classList.remove('hidden');
+}
+</script>
+</div></div>
+
+<script>
+// 本機 Flask 已有 nav.js sidebar，不需要 inline sidebar
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  document.addEventListener('DOMContentLoaded', function() {
+    var sb = document.querySelector('.sidebar');
+    var pw = document.querySelector('.page-wrapper');
+    if (sb) sb.style.display = 'none';
+    if (pw) { pw.style.display = 'block'; }
+    var pc = document.querySelector('.page-content');
+    if (pc) { pc.style.display = 'block'; pc.style.padding = ''; }
+  });
+}
+</script>
+<script src="/static/nav.js"></script>
+</body>
+</html>

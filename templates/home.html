@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工具箱</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+    background: #f5f4f0;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 2.5rem 1.5rem;
+  }
+  .header {
+    max-width: 760px;
+    margin: 0 auto 2rem;
+  }
+  h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 22px;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+  .grid {
+    max-width: 760px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #e0ddd6;
+    border-radius: 14px;
+    padding: 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+    cursor: pointer;
+  }
+  .card:hover {
+    border-color: #c0bdb6;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+  }
+  .card-icon {
+    font-size: 28px;
+    line-height: 1;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+  .card-desc {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+  }
+  .card-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #f0ede6;
+    color: #666;
+    margin-top: auto;
+    align-self: flex-start;
+  }
+  .card.highlight { border-color: #c17f3b; }
+  .card.highlight .card-tag { background: #faeeda; color: #c17f3b; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Lydia's Toolbox</h1>
+  <div class="subtitle">選擇工具</div>
+</div>
+
+<div class="grid">
+  <a class="card highlight" href="/packing">
+    <div class="card-icon">📦</div>
+    <div class="card-title">Packing List 產生器</div>
+    <div class="card-desc">貼入郵件內文，自動解析料號與數量，產出 SCOSCHE 裝箱單 Excel</div>
+    <span class="card-tag">越南出貨</span>
+  </a>
+
+  <a class="card" href="/items">
+    <div class="card-icon">🗃️</div>
+    <div class="card-title">料號資料庫</div>
+    <div class="card-desc">瀏覽、編輯 SCOSCHE 料號規格與嘜頭資料，支援歷史檔案掃描</div>
+    <span class="card-tag">資料管理</span>
+  </a>
+
+  <a class="card" href="/tools/currency">
+    <div class="card-icon">💱</div>
+    <div class="card-title">匯率換算</div>
+    <div class="card-desc">即時 TWD / USD / CNY / VND 四幣互換，自動抓取每日匯率</div>
+    <span class="card-tag">財務</span>
+  </a>
+
+  <a class="card" href="/tools/cbp">
+    <div class="card-icon">🛃</div>
+    <div class="card-title">CBP 報關品名助手</div>
+    <div class="card-desc">輸入舊品名，AI 自動產出符合 CBP 2024 三要素規範的英文品名</div>
+    <span class="card-tag">美國海關</span>
+  </a>
+
+  <a class="card" href="/tools/orders">
+    <div class="card-icon">📋</div>
+    <div class="card-title">訂單篩選</div>
+    <div class="card-desc">上傳訂單追蹤表，依出貨日期篩選，下載保留原始格式的 Excel</div>
+    <span class="card-tag">訂單管理</span>
+  </a>
+</div>
+<script src="/static/nav.js"></script>
+</body>
+</html>

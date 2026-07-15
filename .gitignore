@@ -1,0 +1,26 @@
+# API key / secrets - NEVER push to public GitHub
+config.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+app.log
+
+# Temp files
+*.tmp
+out.txt
+
+# Excel temp files
+~$*.xlsx
+~$*.xls
+~$*.docx
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

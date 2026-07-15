@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>料號資料庫 — SCOSCHE</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; background: #faf9f6; color: #222; }
+
+/* ── Nav ── */
+
+/* ── Layout ── */
+.container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.toolbar input[type=text] { flex: 1; min-width: 200px; padding: 7px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+.btn { padding: 7px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.btn-primary { background: #c17f3b; color: #fff; }
+.btn-primary:hover { background: #a8682a; }
+.btn-success { background: #28a745; color: #fff; }
+.btn-success:hover { background: #1e7e34; }
+.btn-warning { background: #fd7e14; color: #fff; }
+.btn-warning:hover { background: #e96b05; }
+.btn-danger  { background: #dc3545; color: #fff; }
+.btn-danger:hover  { background: #b02a37; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-ok  { background: #d4edda; color: #155724; }
+.badge-no  { background: #f8d7da; color: #721c24; }
+
+/* ── Table ── */
+.tbl-wrap { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { background: #1a1a1a; color: #fff; padding: 9px 10px; text-align: left; font-size: 12px; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+td { padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+tr:hover td { background: #f0f7ff; }
+tr.selected td { background: #dbeeff; }
+.col-item  { width: 100px; font-family: monospace; font-size: 13px; }
+.col-desc  { min-width: 200px; }
+.col-num   { width: 60px; text-align: right; }
+.col-dim   { width: 120px; font-size: 12px; }
+.col-mark  { width: 70px; text-align: center; }
+.col-src   { width: 180px; font-size: 11px; color: #888; }
+.col-act   { width: 90px; white-space: nowrap; }
+
+/* ── Detail dialog ── */
+#detail-panel { background: #fff; border-radius: 8px; padding: 24px; width: 680px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+#detail-panel h3 { color: #1a1a1a; margin-bottom: 14px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; color: #555; font-weight: 600; }
+.form-group input, .form-group textarea {
+  padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit;
+}
+.form-group textarea { resize: vertical; min-height: 80px; font-family: monospace; font-size: 12px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-actions { display: flex; gap: 8px; margin-top: 14px; }
+#status-bar { padding: 6px 0; font-size: 12px; color: #555; }
+
+/* ── Add dialog overlay ── */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; align-items: center; justify-content: center; }
+.overlay.show { display: flex; }
+.dialog { background: #fff; border-radius: 8px; padding: 24px; width: 480px; max-width: 95vw; }
+.dialog h3 { color: #1a1a1a; margin-bottom: 16px; }
+.dialog .form-grid { grid-template-columns: 1fr; }
+.dialog .form-actions { justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+
+<div class="container">
+  <div class="toolbar">
+    <input type="text" id="search-box" placeholder="搜尋料號 或 描述關鍵字…" oninput="debounceSearch()">
+    <button class="btn btn-primary" onclick="doSearch()">搜尋</button>
+    <button class="btn btn-success" onclick="showAddDialog()">＋ 新增料號</button>
+    <button class="btn btn-warning" onclick="triggerScan(false)" id="scan-btn">重新掃描（增量）</button>
+    <button class="btn btn-warning" onclick="triggerScan(true)">完整掃描</button>
+    <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;white-space:nowrap">
+      <input type="checkbox" id="only-no-mark" onchange="applyFilter()" style="width:15px;height:15px">
+      只看無嘜頭
+    </label>
+    <span id="status-bar">載入中…</span>
+  </div>
+
+  <!-- 編輯彈窗 -->
+  <div class="overlay" id="detail-overlay">
+  <div id="detail-panel">
+    <h3 id="detail-title">料號詳情</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>料號</label>
+        <input type="text" id="f-item_no" readonly style="background:#f5f5f5">
+      </div>
+      <div class="form-group">
+        <label>每箱數量 (pcs/ctn)</label>
+        <input type="number" id="f-pcs_per_ctn">
+      </div>
+      <div class="form-group full">
+        <label>描述 (Description)</label>
+        <input type="text" id="f-desc">
+      </div>
+      <div class="form-group">
+        <label>尺寸 dim (W×D×H cm)</label>
+        <input type="text" id="f-dim" placeholder="e.g. 47*37.5*39.5">
+      </div>
+      <div class="form-group">
+        <label>NW (kg)</label>
+        <input type="number" id="f-nw" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>GW (kg)</label>
+        <input type="number" id="f-gw" step="0.01">
+      </div>
+      <div class="form-group full">
+        <label>嘜頭 (Shipping Mark)</label>
+        <textarea id="f-mark" rows="8"></textarea>
+      </div>
+      <div class="form-group full" style="border-top:1px solid #eee;padding-top:10px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="f-has_pallet" style="width:15px;height:15px" onchange="togglePalletFields()">
+          需要棧板（產 Excel 時自動加 WITH PLT 頁）
+        </label>
+      </div>
+      <div class="form-group pallet-field" style="display:none">
+        <label>每板箱數 (CTN/PLT)</label>
+        <input type="number" id="f-ctns_per_plt" placeholder="e.g. 240">
+      </div>
+      <div class="form-group pallet-field" style="display:none">
+        <label>棧板尺寸 plt_dim (W*D*H cm)</label>
+        <input type="text" id="f-plt_dim" placeholder="e.g. 121.92*101.6*71.2">
+      </div>
+      <div class="form-group pallet-field" style="display:none">
+        <label>棧板加重 NW (kg/板)</label>
+        <input type="number" id="f-plt_nw_extra" step="0.01" placeholder="棧板本身淨重">
+      </div>
+      <div class="form-group pallet-field" style="display:none">
+        <label>棧板加重 GW (kg/板)</label>
+        <input type="number" id="f-plt_gw_extra" step="0.01" placeholder="棧板本身毛重">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveItem()">儲存</button>
+      <button class="btn" onclick="closeDetail()" style="background:#eee">取消</button>
+    </div>
+  </div>
+  </div><!-- /detail-overlay -->
+
+  <!-- 表格 -->
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-item">料號</th>
+          <th class="col-desc">描述</th>
+          <th class="col-num">PCS/CTN</th>
+          <th class="col-dim">尺寸 (cm)</th>
+          <th class="col-num">NW</th>
+          <th class="col-num">GW</th>
+          <th class="col-mark">嘜頭</th>
+          <th class="col-src">來源檔案</th>
+          <th class="col-act">操作</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-body">
+        <tr><td colspan="9" style="padding:30px;text-align:center;color:#888">載入中…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 新增料號 dialog -->
+<div class="overlay" id="add-overlay">
+  <div class="dialog">
+    <h3>新增料號</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>料號 *</label><input type="text" id="add-item_no"></div>
+      <div class="form-group"><label>描述</label><input type="text" id="add-desc"></div>
+      <div class="form-group"><label>PCS/CTN</label><input type="number" id="add-pcs"></div>
+      <div class="form-group"><label>尺寸 (W×D×H cm)</label><input type="text" id="add-dim"></div>
+      <div class="form-group"><label>NW (kg)</label><input type="number" id="add-nw" step="0.01"></div>
+      <div class="form-group"><label>GW (kg)</label><input type="number" id="add-gw" step="0.01"></div>
+      <div class="form-group full"><label>嘜頭</label><textarea id="add-mark" rows="6"></textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-success" onclick="submitAdd()">新增</button>
+      <button class="btn" onclick="hideAddDialog()" style="background:#eee">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _items = [];
+let _selectedItemNo = null;
+let _searchTimer = null;
+
+// ── 初始載入 ──
+loadItems();
+checkScanStatus();
+
+function loadItems(q='') {
+  const url = q ? `/api/items?q=${encodeURIComponent(q)}` : '/api/items';
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      _items = data;
+      applyFilter();
+    })
+    .catch(() => document.getElementById('status-bar').textContent = '載入失敗');
+}
+
+// 套用「只看無嘜頭」過濾後再渲染
+function applyFilter() {
+  const onlyNoMark = document.getElementById('only-no-mark').checked;
+  const shown = onlyNoMark ? _items.filter(it => !it.has_mark) : _items;
+  renderTable(shown);
+  document.getElementById('status-bar').textContent = onlyNoMark
+    ? `無嘜頭 ${shown.length} 筆／共 ${_items.length} 筆`
+    : `共 ${_items.length} 筆料號`;
+}
+
+function debounceSearch() {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(doSearch, 300);
+}
+
+function doSearch() {
+  const q = document.getElementById('search-box').value.trim();
+  loadItems(q);
+}
+
+function renderTable(items) {
+  const tbody = document.getElementById('tbl-body');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:30px;text-align:center;color:#888">無符合資料</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(it => `
+    <tr id="row-${it.item_no}" onclick="selectRow('${it.item_no}')" style="cursor:pointer">
+      <td class="col-item">${it.item_no}</td>
+      <td class="col-desc">${esc(it.desc)}</td>
+      <td class="col-num">${it.pcs_per_ctn ?? '—'}</td>
+      <td class="col-dim">${esc(it.dim)}</td>
+      <td class="col-num">${it.nw ?? '—'}</td>
+      <td class="col-num">${it.gw ?? '—'}</td>
+      <td class="col-mark"><span class="badge ${it.has_mark ? 'badge-ok' : 'badge-no'}">${it.has_mark ? '✔' : '✘'}</span></td>
+      <td class="col-src">${esc(it.source_file)}</td>
+      <td class="col-act">
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDetail('${it.item_no}')">編輯</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteItem('${it.item_no}')">刪除</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── 選取 row ──
+function selectRow(itemNo) {
+  document.querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'));
+  const row = document.getElementById(`row-${itemNo}`);
+  if (row) row.classList.add('selected');
+  _selectedItemNo = itemNo;
+}
+
+// ── 編輯面板 ──
+function openDetail(itemNo) {
+  selectRow(itemNo);
+  fetch(`/api/items/${itemNo}`)
+    .then(r => r.json())
+    .then(it => {
+      document.getElementById('f-item_no').value    = it.item_no;
+      document.getElementById('f-desc').value       = it.desc ?? '';
+      document.getElementById('f-pcs_per_ctn').value = it.pcs_per_ctn ?? '';
+      document.getElementById('f-dim').value        = it.dim ?? '';
+      document.getElementById('f-nw').value         = it.nw ?? '';
+      document.getElementById('f-gw').value         = it.gw ?? '';
+      document.getElementById('f-mark').value       = it.shipping_mark ?? '';
+      document.getElementById('f-has_pallet').checked   = !!it.has_pallet;
+      document.getElementById('f-ctns_per_plt').value   = it.ctns_per_plt ?? '';
+      document.getElementById('f-plt_dim').value        = it.plt_dim ?? '';
+      document.getElementById('f-plt_nw_extra').value   = it.plt_nw_extra ?? '';
+      document.getElementById('f-plt_gw_extra').value   = it.plt_gw_extra ?? '';
+      togglePalletFields();
+      document.getElementById('detail-title').textContent = `編輯料號：${it.item_no}`;
+      document.getElementById('detail-overlay').classList.add('show');
+    });
+}
+
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.remove('show');
+  _selectedItemNo = null;
+}
+
+// 空字串存 null；0 仍存 0（避免 ||null 把 0 吃掉）
+function numOrNull(id) {
+  const v = document.getElementById(id).value.trim();
+  if (v === '') return null;
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+
+function togglePalletFields() {
+  const on = document.getElementById('f-has_pallet').checked;
+  document.querySelectorAll('.pallet-field').forEach(el => el.style.display = on ? 'flex' : 'none');
+}
+
+function saveItem() {
+  const itemNo = document.getElementById('f-item_no').value;
+  const payload = {
+    desc:        document.getElementById('f-desc').value,
+    pcs_per_ctn: numOrNull('f-pcs_per_ctn'),
+    dim:         document.getElementById('f-dim').value,
+    nw:          numOrNull('f-nw'),
+    gw:          numOrNull('f-gw'),
+    shipping_mark: document.getElementById('f-mark').value,
+    has_pallet:   document.getElementById('f-has_pallet').checked,
+    ctns_per_plt: numOrNull('f-ctns_per_plt'),
+    plt_dim:      document.getElementById('f-plt_dim').value,
+    plt_nw_extra: numOrNull('f-plt_nw_extra'),
+    plt_gw_extra: numOrNull('f-plt_gw_extra'),
+  };
+  fetch(`/api/items/${itemNo}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
+    .then(r => r.json())
+    .then(() => {
+      document.getElementById('status-bar').textContent = `✅ ${itemNo} 已儲存`;
+      closeDetail();
+      doSearch();
+    })
+    .catch(() => alert('儲存失敗'));
+}
+
+// ── 刪除 ──
+function deleteItem(itemNo) {
+  if (!confirm(`確定刪除 ${itemNo}？`)) return;
+  fetch(`/api/items/${itemNo}`, {method:'DELETE'})
+    .then(r => r.json())
+    .then(() => { closeDetail(); doSearch(); })
+    .catch(() => alert('刪除失敗'));
+}
+
+// ── 新增 ──
+function showAddDialog() { document.getElementById('add-overlay').classList.add('show'); }
+function hideAddDialog() { document.getElementById('add-overlay').classList.remove('show'); }
+
+function submitAdd() {
+  const payload = {
+    item_no:     document.getElementById('add-item_no').value.trim(),
+    desc:        document.getElementById('add-desc').value,
+    pcs_per_ctn: numOrNull('add-pcs'),
+    dim:         document.getElementById('add-dim').value,
+    nw:          numOrNull('add-nw'),
+    gw:          numOrNull('add-gw'),
+    shipping_mark: document.getElementById('add-mark').value,
+  };
+  if (!payload.item_no) { alert('料號必填'); return; }
+  fetch('/api/items', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) { alert(res.error); return; }
+      hideAddDialog();
+      doSearch();
+    })
+    .catch(() => alert('新增失敗'));
+}
+
+// ── 掃描 ──
+function triggerScan(full) {
+  const msg = full ? '將完整重新掃描所有歷史檔案，約需 30 秒，確認？' : '啟動增量掃描？';
+  if (!confirm(msg)) return;
+  document.getElementById('scan-btn').disabled = true;
+  document.getElementById('status-bar').textContent = '掃描中…';
+  fetch('/api/scan', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({full})})
+    .then(r => r.json())
+    .then(() => { pollScan(); });
+}
+
+function pollScan() {
+  fetch('/api/scan/status').then(r => r.json()).then(s => {
+    if (s.running) {
+      document.getElementById('status-bar').textContent = '掃描中…';
+      setTimeout(pollScan, 2000);
+    } else {
+      document.getElementById('scan-btn').disabled = false;
+      document.getElementById('status-bar').textContent = `掃描完成：${s.last ?? ''}`;
+      doSearch();
+    }
+  });
+}
+
+function checkScanStatus() {
+  fetch('/api/scan/status').then(r => r.json()).then(s => {
+    if (s.running) { document.getElementById('status-bar').textContent = '掃描中…'; pollScan(); }
+  });
+}
+
+// 點 overlay 背景關閉 dialog
+document.getElementById('add-overlay').addEventListener('click', function(e) {
+  if (e.target === this) hideAddDialog();
+});
+document.getElementById('detail-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeDetail();
+});
+
+// Enter 搜尋
+document.getElementById('search-box').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+</script>
+<script src="/static/nav.js"></script>
+</body>
+</html>

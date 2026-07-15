@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Packing List 產生器</title>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+  background: #faf9f6;
+  color: #1a1a1a;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 200px;
+  min-height: 100vh;
+  background: #f5f4f0;
+  border-right: 1px solid #e0ddd6;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.sidebar-brand {
+  padding: 1.4rem 1.2rem 1rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.6rem 1.2rem;
+  font-size: 13.5px;
+  color: #444;
+  text-decoration: none;
+  border-right: 3px solid transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.nav-item:hover { background: #edeae4; color: #1a1a1a; }
+.nav-item.active {
+  color: #c17f3b;
+  border-right-color: #c17f3b;
+  font-weight: 500;
+  background: #edeae4;
+}
+.nav-item.disabled { color: #bbb; pointer-events: none; }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  font-size: 9px;
+  background: #e8e4dc;
+  color: #999;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── Main ── */
+.main {
+  flex: 1;
+  padding: 2rem 2.2rem;
+  max-width: 960px;
+  overflow-x: auto;
+}
+.page-header { margin-bottom: 1.8rem; }
+.page-header h1 {
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.12em; text-transform: uppercase; color: #aaa;
+  margin-bottom: 4px;
+}
+.page-header .subtitle { font-size: 22px; font-weight: 500; }
+
+/* Steps */
+.step {
+  background: #fff;
+  border: 1px solid #e0ddd6;
+  border-radius: 14px;
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.2rem;
+}
+.step-title {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: #c17f3b; margin-bottom: 1rem;
+}
+.step.disabled { opacity: 0.4; pointer-events: none; }
+
+/* Form elements */
+label { font-size: 12px; color: #666; margin-bottom: 4px; display: block; }
+input[type=text], input[type=date], textarea, select {
+  width: 100%; border: 1px solid #dedad4;
+  border-radius: 8px; padding: 8px 10px;
+  font-size: 13px; font-family: inherit;
+  background: #faf9f6; color: #1a1a1a;
+  transition: border-color 0.15s;
+}
+input[type=text]:focus, input[type=date]:focus,
+textarea:focus, select:focus {
+  outline: none; border-color: #c17f3b;
+}
+textarea { resize: vertical; min-height: 120px; }
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+.form-group { display: flex; flex-direction: column; }
+
+/* Buttons */
+.btn {
+  padding: 8px 18px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 1px solid transparent; transition: all 0.15s;
+}
+.btn-primary {
+  background: #c17f3b; color: #fff; border-color: #c17f3b;
+}
+.btn-primary:hover { background: #a8682a; }
+.btn-primary:disabled { background: #d4b897; border-color: #d4b897; cursor: not-allowed; }
+.btn-outline {
+  background: transparent; color: #c17f3b; border-color: #c17f3b;
+}
+.btn-outline:hover { background: #faeeda; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* Items table */
+.items-table {
+  width: 100%; border-collapse: collapse; font-size: 12.5px;
+  margin-top: 0.8rem;
+}
+.items-table th {
+  text-align: left; padding: 6px 8px;
+  background: #f5f4f0; border-bottom: 2px solid #e0ddd6;
+  font-size: 11px; font-weight: 600; color: #888;
+  text-transform: uppercase; white-space: nowrap;
+}
+.items-table td {
+  padding: 6px 8px; border-bottom: 1px solid #f0ede6;
+  vertical-align: middle;
+}
+.items-table tr:last-child td { border-bottom: none; }
+.items-table input[type=text],
+.items-table input[type=number],
+.items-table input[type=checkbox] {
+  width: auto;
+}
+.items-table input[type=text],
+.items-table input[type=number] {
+  width: 100%; min-width: 60px; padding: 4px 6px; font-size: 12px;
+}
+.items-table input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+.tag-found {
+  font-size: 10px; padding: 1px 6px; border-radius: 3px;
+  background: #e6f4ea; color: #2d7d46;
+}
+.tag-missing {
+  font-size: 10px; padding: 1px 6px; border-radius: 3px;
+  background: #fde8e8; color: #c0392b;
+}
+.del-btn {
+  background: none; border: none; cursor: pointer;
+  color: #ccc; font-size: 16px; padding: 2px 4px;
+}
+.del-btn:hover { color: #c0392b; }
+
+/* Status */
+.status-bar {
+  font-size: 12px; color: #888; padding: 0.5rem 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.status-bar.ok { color: #2d7d46; }
+.status-bar.warn { color: #c17f3b; }
+.status-bar.err { color: #c0392b; }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid #ddd; border-top-color: #c17f3b;
+  border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Action row */
+.action-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 1rem; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-brand">Lydia's Toolbox</div>
+  <a class="nav-item" href="../index.html"><span class="nav-icon">🏠</span> 首頁</a>
+  <a class="nav-item active" href="#"><span class="nav-icon">📦</span> Packing List</a>
+  <a class="nav-item disabled" href="#"><span class="nav-icon">🗃️</span> 料號資料庫<span class="nav-badge">本機</span></a>
+  <a class="nav-item" href="currency_v2.html"><span class="nav-icon">💱</span> 匯率換算</a>
+  <a class="nav-item" href="cbp_v2.html"><span class="nav-icon">🛃</span> CBP 助手</a>
+  <a class="nav-item" href="orders.html"><span class="nav-icon">📋</span> 訂單篩選</a>
+</nav>
+
+<!-- Main -->
+<div class="main">
+  <div class="page-header">
+    <h1>Vietnam Export</h1>
+    <div class="subtitle">Packing List 產生器</div>
+  </div>
+
+  <!-- Step 1: Paste email -->
+  <div class="step" id="step1">
+    <div class="step-title">Step 1 — 貼入郵件內文</div>
+    <div class="form-group" style="margin-bottom:0.8rem">
+      <label>CS302 郵件內文（包含料號與數量）</label>
+      <textarea id="emailBody" placeholder="貼入完整郵件內文，例如：
+8SHB130232*5040pcs/SMS2DV-SP1...
+鐳雕號：1630552226
+8SHB010041*2160pcs/..."></textarea>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary" onclick="parseEmail()">解析</button>
+      <div class="status-bar" id="step1Status"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: Confirm items -->
+  <div class="step disabled" id="step2">
+    <div class="step-title">Step 2 — 確認資料</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>PO #</label>
+        <input type="text" id="poNum" placeholder="163055">
+      </div>
+      <div class="form-group">
+        <label>日期</label>
+        <input type="date" id="packDate">
+      </div>
+      <div class="form-group">
+        <label>Payment Term</label>
+        <input type="text" id="paymentTerm" value="T/T NET ETD 75DAYS">
+      </div>
+    </div>
+
+    <table class="items-table" id="itemsTable">
+      <thead>
+        <tr>
+          <th>料號</th>
+          <th>品名</th>
+          <th>訂購 PCS</th>
+          <th>箱數 CTN</th>
+          <th>PCS/CTN</th>
+          <th>尺寸 (W*D*H cm)</th>
+          <th>NW (kg)</th>
+          <th>GW (kg)</th>
+          <th>鐳雕號</th>
+          <th>RFID</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="itemsBody"></tbody>
+    </table>
+
+    <div class="action-row">
+      <button class="btn btn-outline btn-sm" onclick="addRow()">＋ 手動新增</button>
+      <div class="status-bar" id="step2Status"></div>
+    </div>
+  </div>
+
+  <!-- Step 3: Generate -->
+  <div class="step disabled" id="step3">
+    <div class="step-title">Step 3 — 產生裝箱單</div>
+    <p style="font-size:13px;color:#666;margin-bottom:1rem">
+      確認以上資料無誤後，點選下方按鈕產生 Excel 裝箱單。INV 號請在 Excel 中手動填入 J7 欄位。
+    </p>
+    <div class="action-row">
+      <button class="btn btn-primary" id="generateBtn" onclick="generateExcel()">⬇ 下載 Packing List Excel</button>
+      <div class="status-bar" id="step3Status"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const GITHUB_BASE = 'https://raw.githubusercontent.com/lydiachen000428/Lydia-toolbox/main';
+const ITEMS_URL    = GITHUB_BASE + '/data/items.json';
+const TEMPLATE_URL = GITHUB_BASE + '/assets/SCOSCHE_PACKING_TEMPLATE.xlsx';
+
+// ── State ───────────────────────────────────────────────────────────────────
+let itemsDb = {};      // item_no → spec object
+let dbReady = false;
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  try {
+    const r = await fetch(ITEMS_URL);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const arr = await r.json();
+    arr.forEach(it => { itemsDb[it.item_no] = it; });
+    dbReady = true;
+    setStatus('step1Status', 'ok', `✓ 料號資料庫已載入（${arr.length} 筆）`);
+  } catch(e) {
+    setStatus('step1Status', 'err', '⚠ 料號資料庫載入失敗：' + e.message);
+  }
+  // Default date = today
+  document.getElementById('packDate').value = new Date().toISOString().slice(0,10);
+})();
+
+// ── Regex (ported from outlook_search.py) ───────────────────────────────────
+const PCS_STAR_RE = /(8SH[A-Z]\d{6}|S6SH\d{6})\*(\d+)\s*pcs/gi;
+const ITEM_RE     = /(8SH[A-Z]\d{6}|S6SH\d{6})/gi;
+const CTN_RE      = /(\d+)\s*(?:CTN|CTNS|Carton|箱)/i;
+const LASER_RE    = /鐳雕號[:：]\s*(\d+)/i;
+
+function parseEmailBody(body) {
+  const lines = body.split('\n');
+  const results = [];
+  let currentLaser = '';
+
+  // Format 1: 料號*Npcs
+  for (const line of lines) {
+    const lm = LASER_RE.exec(line);
+    if (lm) currentLaser = lm[1];
+    LASER_RE.lastIndex = 0;
+
+    PCS_STAR_RE.lastIndex = 0;
+    let m;
+    while ((m = PCS_STAR_RE.exec(line)) !== null) {
+      results.push({ item_no: m[1], total_pcs: parseInt(m[2]), date_code: currentLaser, from: 'star' });
+    }
+  }
+
+  // Format 2 fallback: just find item numbers
+  if (results.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const lm = LASER_RE.exec(lines[i]);
+      if (lm) currentLaser = lm[1];
+      LASER_RE.lastIndex = 0;
+
+      ITEM_RE.lastIndex = 0;
+      let m;
+      while ((m = ITEM_RE.exec(lines[i])) !== null) {
+        const search = lines.slice(Math.max(0,i-1), Math.min(lines.length, i+6)).join(' ');
+        const cm = CTN_RE.exec(search);
+        results.push({ item_no: m[1], total_pcs: null, ctns: cm ? parseInt(cm[1]) : null, date_code: currentLaser, from: 'ctn' });
+      }
+    }
+  }
+
+  // Deduplicate
+  const seen = {};
+  return results.filter(r => { if (seen[r.item_no]) return false; seen[r.item_no] = true; return true; });
+}
+
+// ── Parse email button ────────────────────────────────────────────────────────
+function parseEmail() {
+  const body = document.getElementById('emailBody').value.trim();
+  if (!body) { setStatus('step1Status', 'warn', '請貼入郵件內文'); return; }
+
+  const raw = parseEmailBody(body);
+  if (!raw.length) { setStatus('step1Status', 'warn', '未找到料號，請確認格式（例：8SHB130232*5040pcs）'); return; }
+
+  const rows = raw.map(r => {
+    const spec = itemsDb[r.item_no] || {};
+    const ppc  = spec.pcs_per_ctn || null;
+    const ctns = r.ctns != null ? r.ctns
+               : (r.total_pcs && ppc) ? Math.round(r.total_pcs / ppc)
+               : null;
+    return {
+      item_no:    r.item_no,
+      desc:       spec.desc || '',
+      total_pcs:  r.total_pcs || (ctns && ppc ? ctns * ppc : null),
+      ctns:       ctns,
+      pcs_per_ctn: ppc,
+      dim:        spec.dim || '',
+      nw:         spec.nw  || '',
+      gw:         spec.gw  || '',
+      date_code:  r.date_code || '',
+      rfid:       false,
+      db_found:   !!spec.item_no,
+    };
+  });
+
+  renderTable(rows);
+  setStatus('step1Status', 'ok', `✓ 解析完成：${rows.length} 個料號`);
+  enable('step2');
+  enable('step3');
+}
+
+// ── Table rendering ───────────────────────────────────────────────────────────
+function renderTable(rows) {
+  const tbody = document.getElementById('itemsBody');
+  tbody.innerHTML = '';
+  rows.forEach(r => appendRow(r));
+}
+
+function appendRow(r = {}) {
+  const tbody = document.getElementById('itemsBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" name="item_no" value="${esc(r.item_no||'')}" style="width:100px;font-family:monospace" onblur="lookupItem(this)"></td>
+    <td><input type="text" name="desc" value="${esc(r.desc||'')}" style="width:160px"></td>
+    <td><input type="number" name="total_pcs" value="${r.total_pcs||''}" style="width:70px" oninput="recalcCtns(this)"></td>
+    <td><input type="number" name="ctns" value="${r.ctns||''}" style="width:55px"></td>
+    <td><input type="number" name="pcs_per_ctn" value="${r.pcs_per_ctn||''}" style="width:60px"></td>
+    <td><input type="text" name="dim" value="${esc(r.dim||'')}" style="width:110px" placeholder="W*D*H"></td>
+    <td><input type="number" name="nw" value="${r.nw||''}" step="0.01" style="width:55px"></td>
+    <td><input type="number" name="gw" value="${r.gw||''}" step="0.01" style="width:55px"></td>
+    <td><input type="text" name="date_code" value="${esc(r.date_code||'')}" style="width:90px"></td>
+    <td style="text-align:center"><input type="checkbox" name="rfid" ${r.rfid?'checked':''}></td>
+    <td><button class="del-btn" onclick="this.closest('tr').remove()">✕</button></td>
+  `;
+  // DB found badge in desc cell
+  if (r.item_no) {
+    const badge = document.createElement('span');
+    badge.className = r.db_found ? 'tag-found' : 'tag-missing';
+    badge.textContent = r.db_found ? '✓ 已知' : '! 未知';
+    badge.style.marginLeft = '4px';
+    tr.querySelector('[name=item_no]').after(badge);
+  }
+  tbody.appendChild(tr);
+}
+
+function addRow() { appendRow({}); enable('step3'); }
+
+function lookupItem(input) {
+  const item_no = input.value.trim();
+  if (!item_no || !dbReady) return;
+  const spec = itemsDb[item_no];
+  const tr = input.closest('tr');
+
+  // Update badge
+  const oldBadge = tr.querySelector('.tag-found, .tag-missing');
+  if (oldBadge) oldBadge.remove();
+  const badge = document.createElement('span');
+  badge.className = spec ? 'tag-found' : 'tag-missing';
+  badge.textContent = spec ? '✓ 已知' : '! 未知';
+  badge.style.marginLeft = '4px';
+  input.after(badge);
+
+  if (spec) {
+    tr.querySelector('[name=desc]').value          = spec.desc || '';
+    tr.querySelector('[name=pcs_per_ctn]').value   = spec.pcs_per_ctn || '';
+    tr.querySelector('[name=dim]').value            = spec.dim || '';
+    tr.querySelector('[name=nw]').value             = spec.nw || '';
+    tr.querySelector('[name=gw]').value             = spec.gw || '';
+    recalcCtns(tr.querySelector('[name=total_pcs]'));
+  }
+}
+
+function recalcCtns(input) {
+  const tr = input.closest('tr');
+  const total_pcs = parseInt(input.value) || 0;
+  const ppc = parseInt(tr.querySelector('[name=pcs_per_ctn]').value) || 0;
+  if (total_pcs && ppc) {
+    tr.querySelector('[name=ctns]').value = Math.round(total_pcs / ppc);
+  }
+}
+
+// ── Collect table data ────────────────────────────────────────────────────────
+function collectItems() {
+  const rows = document.querySelectorAll('#itemsBody tr');
+  const items = [];
+  for (const tr of rows) {
+    const g = name => tr.querySelector(`[name=${name}]`).value.trim();
+    const n = name => parseFloat(tr.querySelector(`[name=${name}]`).value) || 0;
+    const item = {
+      item_no:     g('item_no'),
+      desc:        g('desc'),
+      ctns:        parseInt(tr.querySelector('[name=ctns]').value) || 0,
+      pcs_per_ctn: parseInt(tr.querySelector('[name=pcs_per_ctn]').value) || 0,
+      dim:         g('dim'),
+      nw:          n('nw'),
+      gw:          n('gw'),
+      date_code:   g('date_code'),
+      rfid:        tr.querySelector('[name=rfid]').checked,
+    };
+    if (item.item_no && item.ctns) items.push(item);
+  }
+  return items;
+}
+
+// ── Excel generation ─────────────────────────────────────────────────────────
+const KG_TO_LBS = 2.20462;
+const MM_TO_IN  = 0.03937;
+const RED_ARGB  = 'FFFF0000';
+const RED_FONT  = { name: 'Times New Roman', color: { argb: RED_ARGB }, size: 10 };
+
+async function generateExcel() {
+  const po          = document.getElementById('poNum').value.trim();
+  const packDate    = document.getElementById('packDate').value;
+  const paymentTerm = document.getElementById('paymentTerm').value.trim() || 'T/T NET ETD 75DAYS';
+
+  if (!po)       { setStatus('step3Status', 'warn', '請填寫 PO #'); return; }
+  if (!packDate) { setStatus('step3Status', 'warn', '請選擇日期'); return; }
+
+  const items = collectItems();
+  if (!items.length) { setStatus('step3Status', 'warn', '沒有有效的料號資料'); return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  setStatus('step3Status', '', '<span class="spinner"></span> 載入範本中...');
+
+  try {
+    // 1. Fetch template
+    const resp = await fetch(TEMPLATE_URL);
+    if (!resp.ok) throw new Error('範本載入失敗 HTTP ' + resp.status);
+    const buf = await resp.arrayBuffer();
+
+    setStatus('step3Status', '', '<span class="spinner"></span> 建立裝箱單中...');
+
+    // 2. Load with ExcelJS
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buf);
+    const ws = workbook.getWorksheet('PAC');
+    if (!ws) throw new Error('找不到 PAC 工作表');
+
+    // 3. Headers
+    ws.getCell('J8').value  = `PO: ${po}`;
+    const _pd = new Date(packDate + 'T00:00:00');
+    const _months = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+    const packDateFmt = `${_pd.getDate()} ${_months[_pd.getMonth()]} ${_pd.getFullYear()}`;
+    ws.getCell('J9').value  = `PRINT AT: ${packDateFmt}`;
+    ws.getCell('A10').value = `PAYMENT TERM: ${paymentTerm}`;
+
+    // 4. Insert extra rows for items 2+
+    const n = items.length;
+    const extraRows = (n - 1) * 2;
+    const totalRow  = 12 + n * 2;
+
+    if (extraRows > 0) {
+      // Snapshot styles from template row 12 & 13
+      const styleRow12 = [], styleRow13 = [];
+      for (let c = 1; c <= 12; c++) {
+        styleRow12[c] = cloneCellStyle(ws.getCell(12, c));
+        styleRow13[c] = cloneCellStyle(ws.getCell(13, c));
+      }
+
+      // Remove TOTAL row merged cell A14:C14 (ExcelJS handles this automatically on splice)
+      ws.spliceRows(14, 0, ...Array(extraRows).fill([]));
+
+      // Apply styles to new rows
+      for (let i = 1; i < n; i++) {
+        const dr = 12 + i * 2;
+        const sr = dr + 1;
+        for (let c = 1; c <= 12; c++) {
+          applyStyleToCell(ws.getCell(dr, c), styleRow12[c]);
+          applyStyleToCell(ws.getCell(sr, c), styleRow13[c]);
+        }
+      }
+
+      // Re-merge TOTAL row
+      ws.mergeCells(`A${totalRow}:C${totalRow}`);
+    }
+
+    // 5. Fill data rows
+    const totalCtns = items.reduce((s, it) => s + it.ctns, 0);
+    for (let idx = 0; idx < n; idx++) {
+      const item = items[idx];
+      const dr   = 12 + idx * 2;
+      const sr   = dr + 1;
+
+      ws.getCell(dr, 1).value  = 1;
+      ws.getCell(dr, 2).value  = '-';
+      ws.getCell(dr, 3).value  = item.ctns;
+      ws.getCell(dr, 4).value  = { formula: `C${dr}-A${dr}+1` };
+      ws.getCell(dr, 5).value  = po;
+      ws.getCell(dr, 6).value  = item.item_no;
+      ws.getCell(dr, 7).value  = item.desc;
+      ws.getCell(dr, 8).value  = item.pcs_per_ctn;
+      ws.getCell(dr, 9).value  = item.dim;
+      ws.getCell(dr, 10).value = { formula: item.dim + '/1000000' };  // e.g. 42.5*32.5*25.5/1000000 → m³
+      ws.getCell(dr, 11).value = item.nw;
+      ws.getCell(dr, 12).value = item.gw;
+
+      ws.getCell(sr, 7).value  = 'SUBTOTAL:';
+      ws.getCell(sr, 8).value  = { formula: `H${dr}*D${dr}` };
+      ws.getCell(sr, 10).value = { formula: `J${dr}*D${dr}` };
+      ws.getCell(sr, 11).value = { formula: `K${dr}*D${dr}` };
+      ws.getCell(sr, 12).value = { formula: `L${dr}*D${dr}` };
+    }
+
+    // 6. TOTAL row
+    const subRows = Array.from({length: n}, (_, i) => 13 + i * 2);
+    ws.getCell(totalRow, 1).value  = `${totalCtns} CTNS`;
+    ws.getCell(totalRow, 7).value  = 'TOTAL:';
+    ws.getCell(totalRow, 8).value  = { formula: subRows.map(r => `H${r}`).join('+') };
+    ws.getCell(totalRow, 10).value = { formula: subRows.map(r => `J${r}`).join('+') };
+    ws.getCell(totalRow, 11).value = { formula: subRows.map(r => `K${r}`).join('+') };
+    ws.getCell(totalRow, 12).value = { formula: subRows.map(r => `L${r}`).join('+') };
+
+    // 7. Shipping marks (red font, Times New Roman)
+    const MARK_START = totalRow + 4;
+    const MARK_COLS  = [1, 5, 9];  // A, E, I
+    const g1 = items.slice(0, 3);
+    const g2 = items.slice(3);
+
+    const g1Height = g1.length
+      ? Math.max(...g1.map(it => it.rfid ? 12 : 11))
+      : 0;
+
+    for (let i = 0; i < g1.length; i++) {
+      writeShippingMark(ws, MARK_START, MARK_COLS[i], g1[i], po);
+    }
+
+    let curRow = MARK_START + g1Height + 2;
+    for (const item of g2) {
+      curRow = writeShippingMark(ws, curRow, 1, item, po) + 1;
+    }
+
+    // 8. Download
+    setStatus('step3Status', '', '<span class="spinner"></span> 產生中...');
+    const outBuf = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([outBuf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `SCOSCHE PACKING PO#${po}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    setStatus('step3Status', 'ok', `✓ 已下載 SCOSCHE PACKING PO#${po}.xlsx`);
+  } catch(e) {
+    setStatus('step3Status', 'err', '⚠ 錯誤：' + e.message);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Shipping mark writer ──────────────────────────────────────────────────────
+function writeShippingMark(ws, rowStart, col, item, po) {
+  const [wCm, dCm, hCm] = item.dim.split('*').map(parseFloat);
+  const wMm = Math.round(wCm * 10), dMm = Math.round(dCm * 10), hMm = Math.round(hCm * 10);
+  const wIn = (wMm * MM_TO_IN).toFixed(1);
+  const dIn = (dMm * MM_TO_IN).toFixed(1);
+  const hIn = (hMm * MM_TO_IN).toFixed(1);
+  const nwLb = (item.nw * KG_TO_LBS).toFixed(2);
+  const gwLb = (item.gw * KG_TO_LBS).toFixed(2);
+
+  const lines = [
+    `Part Number: ${item.desc}`,
+    `PO#: ${po}`,
+    `Date Code: ${item.date_code || '待確認'}`,
+    `C/N: of ${item.ctns}`,
+    `Qty: ${item.pcs_per_ctn} pcs`,
+    `N. W.: ${item.nw} kg ${nwLb} lbs`,
+    `G. W.: ${item.gw} kg ${gwLb} lbs`,
+    `Dims (WDH): ${wMm} x ${dMm} x ${hMm} mm`,
+    `(WDH): ${wIn} x ${dIn} x ${hIn} inches`,
+    'Made in Vietnam',
+    '*** GOODS ROHS COMPLIANT***',
+  ];
+  if (item.rfid) lines.push('RFID LABEL REQUIRED');
+
+  lines.forEach((val, i) => {
+    const cell = ws.getCell(rowStart + i, col);
+    cell.value = val;
+    cell.font  = RED_FONT;
+  });
+
+  return rowStart + lines.length;
+}
+
+// ── ExcelJS helpers ───────────────────────────────────────────────────────────
+function cloneCellStyle(cell) {
+  return {
+    font:         cell.font   ? JSON.parse(JSON.stringify(cell.font))   : undefined,
+    border:       cell.border ? JSON.parse(JSON.stringify(cell.border)) : undefined,
+    fill:         cell.fill   ? JSON.parse(JSON.stringify(cell.fill))   : undefined,
+    alignment:    cell.alignment ? JSON.parse(JSON.stringify(cell.alignment)) : undefined,
+    numFmt:       cell.numFmt,
+  };
+}
+
+function applyStyleToCell(cell, style) {
+  if (style.font)      cell.font      = style.font;
+  if (style.border)    cell.border    = style.border;
+  if (style.fill)      cell.fill      = style.fill;
+  if (style.alignment) cell.alignment = style.alignment;
+  if (style.numFmt)    cell.numFmt    = style.numFmt;
+}
+
+function parseDimFormula(dim) {
+  // "W*D*H" → formula that yields m³ value  (like Python: =dim/1000000)
+  // ExcelJS: write as numeric formula
+  if (!dim) return 0;
+  const parts = dim.split('*').map(parseFloat);
+  if (parts.length !== 3 || parts.some(isNaN)) return 0;
+  const cm3 = parts[0] * parts[1] * parts[2];
+  return cm3 / 1000000;  // m³ value (static number; template formula recalcs per D col)
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function setStatus(id, type, html) {
+  const el = document.getElementById(id);
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+  el.innerHTML = html;
+}
+
+function enable(stepId) {
+  document.getElementById(stepId).classList.remove('disabled');
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

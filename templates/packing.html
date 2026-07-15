@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packing List 產生器 — SCOSCHE</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; background: #faf9f6; color: #222; }
+
+
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 20px; margin-bottom: 18px; }
+.card h3 { color: #1a1a1a; font-size: 15px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #ede8e0; }
+
+.steps { display: flex; margin-bottom: 20px; }
+.step { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: #f0ede6; font-size: 13px; flex: 1; }
+.step.active { background: #c17f3b; color: #fff; font-weight: 600; }
+.step.done   { background: #eaf3de; color: #155724; }
+.step-num { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,.15); align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+
+.input-row { display: flex; gap: 8px; }
+.input-row input[type=text] { flex: 1; padding: 9px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+.btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.btn-primary { background: #c17f3b; color: #fff; }
+.btn-primary:hover { background: #a8682a; }
+.btn-success { background: #28a745; color: #fff; padding: 10px 24px; font-size: 14px; }
+.btn-success:hover { background: #1e7e34; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-outline { background: transparent; border: 1px solid #c17f3b; color: #c17f3b; }
+.btn-outline:hover { background: #faeeda; }
+
+/* 頭部欄位 */
+.header-row { display: grid; grid-template-columns: 150px 160px 1fr 120px; gap: 14px; margin-bottom: 14px; align-items: end; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; color: #555; font-weight: 600; }
+.form-group input, .form-group select, .form-group textarea {
+  padding: 7px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit;
+}
+.ship-to-row { display: flex; gap: 6px; align-items: center; }
+.ship-to-row select { flex: 1; }
+
+/* 確認表 */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #1a1a1a; color: #fff; padding: 8px 8px; text-align: left; font-size: 12px; white-space: nowrap; }
+td { padding: 6px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+tr:hover td { background: #fdf8f3; }
+tr.row-warn td { background: #fdecea; }
+tr.row-warn:hover td { background: #fbdad6; }
+td input[type=text], td input[type=number] { width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; }
+td input[type=number] { width: 70px; }
+td input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+.src-db  { color: #28a745; font-size: 11px; font-weight: 600; }
+.src-man { color: #dc3545; font-size: 11px; }
+
+.warn { color: #856404; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 8px 12px; font-size: 13px; margin-top: 8px; }
+.info { color: #854f0b; background: #faeeda; border: 1px solid #f5c275; border-radius: 4px; padding: 8px 12px; font-size: 13px; margin-top: 8px; }
+.err  { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; padding: 8px 12px; font-size: 13px; margin-top: 8px; }
+.preview-box { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px 12px; font-size: 12px; margin-top: 8px; white-space: pre-wrap; font-family: monospace; max-height: 120px; overflow-y: auto; }
+
+.action-bar { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+#gen-status { font-size: 13px; color: #555; }
+
+#loading { display: none; align-items: center; gap: 10px; color: #c17f3b; font-size: 14px; padding: 10px 0; }
+.spinner { width: 20px; height: 20px; border: 3px solid #f5dfc0; border-top-color: #c17f3b; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Ship To 管理彈窗 */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; align-items: center; justify-content: center; }
+.overlay.show { display: flex; }
+.dialog { background: #fff; border-radius: 8px; padding: 24px; width: 520px; max-width: 95vw; }
+.dialog h3 { color: #1a1a1a; margin-bottom: 16px; }
+.ship-list { max-height: 300px; overflow-y: auto; margin-bottom: 12px; }
+.ship-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #eee; }
+.ship-item textarea { flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; font-family: monospace; resize: vertical; min-height: 60px; }
+.ship-item .btn-danger { padding: 4px 8px; font-size: 12px; background: #dc3545; color: #fff; }
+</style>
+</head>
+<body>
+
+
+<div class="container">
+  <div class="steps">
+    <div class="step active" id="step1-ind"><span class="step-num">1</span>貼入內文</div>
+    <div class="step" id="step2-ind"><span class="step-num">2</span>確認資料</div>
+    <div class="step" id="step3-ind"><span class="step-num">3</span>下載 Excel</div>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="card" id="step1-card">
+    <h3 onclick="toggleStep1()" style="cursor:pointer" title="點擊展開／收合">Step 1 — 貼入郵件內文 <span id="step1-toggle-hint" style="font-size:11px;color:#999;font-weight:normal"></span></h3>
+    <div style="display:grid;gap:10px" id="step1-body">
+      <div class="form-group">
+        <label>郵件內文（含料號和數量的部分即可，Ctrl+Enter 直接解析）</label>
+        <textarea id="email-body-input" rows="10" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-family:monospace;resize:vertical" placeholder="把信件內容貼進來…（含 8SHxxxx 料號）"></textarea>
+      </div>
+      <div>
+        <button class="btn btn-primary" onclick="parseWithBody()" style="padding:9px 20px">解析</button>
+      </div>
+    </div>
+    <div id="loading" style="margin-top:10px"><div class="spinner"></div><span>解析中…</span></div>
+    <div id="step1-msg"></div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="card" id="step2-card" style="display:none">
+    <h3>Step 2 — 確認資料</h3>
+
+    <div class="header-row">
+      <div class="form-group">
+        <label>PO#</label>
+        <input type="text" id="hdr-po" placeholder="e.g. 163031">
+      </div>
+      <div class="form-group">
+        <label>出貨日期（PRINT AT）</label>
+        <input type="date" id="hdr-ship-date">
+      </div>
+      <div class="form-group">
+        <label>Ship To</label>
+        <div class="ship-to-row">
+          <select id="hdr-ship-to"></select>
+          <button class="btn btn-outline btn-sm" onclick="showShipToDialog()">管理</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label style="color:transparent">.</label>
+        <button class="btn btn-outline btn-sm" onclick="addRow()">＋ 加料號</button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:105px">料號</th>
+            <th style="min-width:160px">描述</th>
+            <th style="width:60px">CTNs</th>
+            <th style="width:70px">PCS/CTN</th>
+            <th style="width:120px">尺寸 (cm)</th>
+            <th style="width:60px">NW</th>
+            <th style="width:60px">GW</th>
+            <th style="width:95px">鐳雕號</th>
+            <th style="width:45px">RFID</th>
+            <th style="width:50px">來源</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="confirm-body"></tbody>
+      </table>
+    </div>
+
+    <div id="step2-warn"></div>
+
+    <div class="action-bar">
+      <span id="gen-status"></span>
+      <button class="btn btn-success" onclick="generateExcel()">⬇ 產生 Excel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ship To 管理 -->
+<div class="overlay" id="ship-overlay">
+  <div class="dialog">
+    <h3>管理 Ship To 地址</h3>
+    <div class="ship-list" id="ship-list"></div>
+    <button class="btn btn-outline btn-sm" onclick="addShipTo()">＋ 新增地址</button>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-primary" onclick="saveShipTo()">儲存</button>
+      <button class="btn" onclick="hideShipToDialog()" style="background:#eee">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _shipToList = [];
+
+// ── 初始化 ──
+loadShipTo();
+// 出貨日期預設今天（本地時區）
+(function(){
+  const d = new Date();
+  document.getElementById('hdr-ship-date').value =
+    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+})();
+
+function loadShipTo() {
+  fetch('/api/ship_to').then(r => r.json()).then(data => {
+    _shipToList = data;
+    renderShipToSelect();
+  });
+}
+
+function renderShipToSelect() {
+  const sel = document.getElementById('hdr-ship-to');
+  sel.innerHTML = _shipToList.map((addr, i) =>
+    `<option value="${i}">${esc(addr.split('\n')[0])}</option>`
+  ).join('');
+}
+
+// ── Step 1: 解析內文 ──
+function parseWithBody() {
+  const body = document.getElementById('email-body-input').value.trim();
+  if (!body) { alert('請貼入郵件內文'); return; }
+  showLoading(true);
+  clearMsg('step1-msg');
+
+  fetch('/api/parse_subject', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({subject: '', body: body})
+  })
+  .then(r => r.json())
+  .then(data => {
+    showLoading(false);
+    if (data.error) { showMsg('step1-msg','err', data.error); return; }
+    const n = (data.items||[]).length;
+    if (n === 0) {
+      showMsg('step1-msg','warn','未能從內文解析到料號，請確認格式（含 8SHxxxx 料號）');
+      return;
+    }
+    showMsg('step1-msg','info', `✅ 解析到 ${n} 個料號`);
+    collapseStep1(true);
+    renderStep2(data);
+  })
+  .catch(e => { showLoading(false); showMsg('step1-msg','err','失敗：'+e.message); });
+}
+
+function renderStep2(data) {
+  document.getElementById('hdr-po').value = data.po || '';
+  const tbody = document.getElementById('confirm-body');
+  tbody.innerHTML = '';
+  const warns = [];
+  (data.items || []).forEach((it, i) => {
+    if (!it.db_found) warns.push(`⚠️ ${it.item_no} 不在資料庫（紅底列），請手動填入規格`);
+    appendRow(it);
+  });
+  const warnEl = document.getElementById('step2-warn');
+  warnEl.innerHTML = warns.length ? `<div class="warn">${warns.join('<br>')}</div>` : '';
+  setStep(2);
+  document.getElementById('step2-card').style.display = 'block';
+  document.getElementById('step2-card').scrollIntoView({behavior:'smooth'});
+}
+
+function rowHtml(it) {
+  const srcCls  = it.db_found ? 'src-db' : 'src-man';
+  const srcTxt  = it.db_found ? 'DB' : '手動';
+  return `
+    <td><input type="text" name="item_no" value="${esc(it.item_no||'')}" style="font-family:monospace;width:100px" onblur="lookupItem(this)"></td>
+    <td><input type="text" name="desc"    value="${esc(it.desc||'')}"></td>
+    <td><input type="number" name="ctns"  value="${it.ctns||''}" min="1" style="width:58px"></td>
+    <td><input type="number" name="pcs"   value="${it.pcs_per_ctn||''}" min="1" style="width:65px"></td>
+    <td><input type="text" name="dim"     value="${esc(it.dim||'')}"></td>
+    <td><input type="number" name="nw"    value="${it.nw||''}" step="0.01" style="width:58px"></td>
+    <td><input type="number" name="gw"    value="${it.gw||''}" step="0.01" style="width:58px"></td>
+    <td><input type="text" name="date_code" value="${esc(it.date_code||'')}" style="width:88px;font-family:monospace" placeholder="Date Code" title="鐳雕號 / Date Code，空白時嘜頭印「待確認」"></td>
+    <td style="text-align:center"><input type="checkbox" name="rfid" ${it.rfid?'checked':''} title="嘜頭加註 RFID LABEL REQUIRED"></td>
+    <td><span class="${srcCls}">${srcTxt}</span></td>
+    <td><button class="btn btn-sm" style="background:#dc3545;color:#fff;padding:2px 7px" onclick="this.closest('tr').remove()">✕</button></td>`;
+}
+
+function appendRow(it) {
+  const tbody = document.getElementById('confirm-body');
+  const tr = document.createElement('tr');
+  if (!it.db_found && !it.is_manual) tr.className = 'row-warn';   // 不在資料庫 → 紅底
+  tr.innerHTML = rowHtml(it);
+  tbody.appendChild(tr);
+}
+
+// ── Step 1 收合／展開 ──
+function collapseStep1(collapsed) {
+  document.getElementById('step1-body').style.display = collapsed ? 'none' : 'grid';
+  document.getElementById('step1-toggle-hint').textContent = collapsed ? '（點擊展開重新解析）' : '';
+}
+function toggleStep1() {
+  const hidden = document.getElementById('step1-body').style.display === 'none';
+  collapseStep1(!hidden);
+}
+
+function addRow() {
+  appendRow({item_no:'',desc:'',ctns:'',pcs_per_ctn:'',dim:'',nw:'',gw:'',date_code:'',rfid:false,db_found:false,is_manual:true});
+}
+
+// 輸入料號後自動從 DB 查規格
+function lookupItem(input) {
+  const item_no = input.value.trim();
+  if (!item_no) return;
+  const row = input.closest('tr');
+  fetch(`/api/items/${encodeURIComponent(item_no)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(db => {
+      if (!db) return;
+      row.querySelector('[name=desc]').value    = db.desc || '';
+      row.querySelector('[name=pcs]').value     = db.pcs_per_ctn || '';
+      row.querySelector('[name=dim]').value     = db.dim || '';
+      row.querySelector('[name=nw]').value      = db.nw || '';
+      row.querySelector('[name=gw]').value      = db.gw || '';
+      row.querySelector('.src-db, .src-man').className = 'src-db';
+      row.querySelector('.src-db, .src-man').textContent = 'DB';
+      row.classList.remove('row-warn');   // 查到規格後解除紅底
+    })
+    .catch(() => {});
+}
+
+// ── 產生 Excel ──
+function generateExcel() {
+  const po = document.getElementById('hdr-po').value.trim();
+  if (!po) { alert('請填寫 PO#'); return; }
+  const ship_date = document.getElementById('hdr-ship-date').value;
+  if (!ship_date) { alert('請選擇出貨日期'); return; }
+
+  const shipIdx = document.getElementById('hdr-ship-to').value;
+  const ship_to = _shipToList[parseInt(shipIdx)] || '';
+
+  const rows = document.querySelectorAll('#confirm-body tr');
+  const items = [];
+  rows.forEach(row => {
+    const g = name => row.querySelector(`[name=${name}]`).value.trim();
+    const n = name => parseFloat(row.querySelector(`[name=${name}]`).value) || null;
+    items.push({
+      item_no: g('item_no'), desc: g('desc'),
+      ctns: parseInt(g('ctns'))||0, pcs_per_ctn: parseInt(g('pcs'))||0,
+      dim: g('dim'), nw: n('nw'), gw: n('gw'),
+      date_code: g('date_code'), rfid: row.querySelector('[name=rfid]').checked,
+    });
+  });
+
+  document.getElementById('gen-status').textContent = '產生中…';
+
+  fetch('/api/generate_excel', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({po, ship_date, ship_to, items})
+  })
+  .then(r => r.ok ? r.blob() : r.json().then(d => { throw new Error(d.error||'失敗'); }))
+  .then(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `SCOSCHE PACKING PO#${po}.xlsx`;
+    a.click();
+    document.getElementById('gen-status').textContent = '✅ 下載完成';
+    setStep(3);
+  })
+  .catch(e => { document.getElementById('gen-status').textContent = ''; showMsg('step2-warn','err',e.message); });
+}
+
+// ── Ship To 管理 ──
+function showShipToDialog() {
+  renderShipList();
+  document.getElementById('ship-overlay').classList.add('show');
+}
+function hideShipToDialog() {
+  document.getElementById('ship-overlay').classList.remove('show');
+}
+function renderShipList() {
+  document.getElementById('ship-list').innerHTML = _shipToList.map((addr, i) => `
+    <div class="ship-item">
+      <textarea oninput="_shipToList[${i}]=this.value">${esc(addr)}</textarea>
+      <button class="btn btn-danger" onclick="_shipToList.splice(${i},1);renderShipList()">✕</button>
+    </div>`).join('');
+}
+function addShipTo() {
+  _shipToList.push('');
+  renderShipList();
+}
+function saveShipTo() {
+  fetch('/api/ship_to', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(_shipToList)})
+    .then(() => { renderShipToSelect(); hideShipToDialog(); });
+}
+
+// ── 工具 ──
+function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function showMsg(id, type, msg) { document.getElementById(id).innerHTML = `<div class="${type}">${msg}</div>`; }
+function clearMsg(id) { document.getElementById(id).innerHTML = ''; }
+function showLoading(show) { document.getElementById('loading').style.display = show?'flex':'none'; }
+function setStep(n) {
+  ['step1-ind','step2-ind','step3-ind'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','done');
+    if (i+1<n) el.classList.add('done'); else if (i+1===n) el.classList.add('active');
+  });
+}
+
+document.getElementById('ship-overlay').addEventListener('click', function(e) { if(e.target===this) hideShipToDialog(); });
+
+// Ctrl+Enter 直接解析
+document.getElementById('email-body-input').addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') parseWithBody();
+});
+</script>
+<script src="/static/nav.js"></script>
+</body>
+</html>

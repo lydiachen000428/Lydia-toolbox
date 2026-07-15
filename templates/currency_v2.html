@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>匯率換算</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --border: #e0ddd6;
+    --border-focus: #1a1a1a;
+    --text: #1a1a1a;
+    --text-muted: #888880;
+    --text-hint: #b8b5ae;
+    --accent-light: #f0ede6;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Noto Sans TC', sans-serif;
+  }
+
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; margin: 0; }
+
+  .app { width: 100%; max-width: 440px; margin: 0 auto; }
+
+  header { margin-bottom: 2rem; }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .status-row { display: flex; align-items: center; gap: 8px; }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-hint);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.live { background: #2d6a4f; }
+  .status-dot.error { background: #c0392b; }
+  .status-dot.loading {
+    background: #e6a817;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .status-text { font-size: 12px; color: var(--text-hint); font-family: var(--mono); }
+
+  .cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem; }
+
+  .card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 20px;
+    cursor: text;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .card:hover { border-color: #ccc9c0; }
+  .card.active {
+    border-color: var(--border-focus);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  }
+
+  .card-top {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .cur-info { display: flex; align-items: center; gap: 10px; }
+  .flag { font-size: 22px; line-height: 1; }
+  .cur-name { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.2; }
+  .cur-code { font-size: 11px; color: var(--text-muted); font-family: var(--mono); letter-spacing: 0.05em; }
+
+  .rate-tag {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-hint);
+    background: var(--accent-light);
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .inp-wrap { display: flex; align-items: baseline; gap: 6px; }
+  .cur-sym { font-size: 16px; font-weight: 500; color: var(--text-muted); font-family: var(--mono); flex-shrink: 0; }
+
+  input {
+    width: 100%; border: none; outline: none;
+    background: transparent;
+    font-size: 28px; font-weight: 500;
+    font-family: var(--mono);
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  input::placeholder { color: var(--text-hint); }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  input[type=number] { -moz-appearance: textfield; }
+
+  .divider {
+    display: flex; align-items: center; gap: 10px; margin: 4px 0;
+  }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+  .divider-icon { font-size: 14px; color: var(--text-hint); }
+
+  .bottom-row {
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+  }
+
+  .refresh-btn, .clear-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-family: var(--sans);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .refresh-btn:hover, .clear-btn:hover { border-color: #aaa; color: var(--text); }
+  .refresh-btn svg { width: 13px; height: 13px; }
+
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .updated {
+    font-size: 11px; font-family: var(--mono);
+    color: var(--text-hint);
+    text-align: right; margin-top: 1rem;
+  }
+
+  @media (max-width: 480px) { input { font-size: 24px; } }
+  /* ── Shared Sidebar ─────────────────────────────────── */
+  .page-wrapper { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 200px; min-height: 100vh; background: #f5f4f0;
+    border-right: 1px solid #e0ddd6; display: flex;
+    flex-direction: column; flex-shrink: 0; position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar-brand {
+    padding: 1.4rem 1.2rem 1rem; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: #aaa;
+  }
+  .sidebar .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0.6rem 1.2rem; font-size: 13.5px; color: #444;
+    text-decoration: none; border-right: 3px solid transparent;
+    transition: background 0.12s, color 0.12s;
+  }
+  .sidebar .nav-item:hover { background: #edeae4; color: #1a1a1a; }
+  .sidebar .nav-item.active {
+    color: #c17f3b; border-right-color: #c17f3b; font-weight: 500; background: #edeae4;
+  }
+  .sidebar .nav-item.disabled { color: #bbb; pointer-events: none; }
+  .sidebar .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .sidebar .nav-badge {
+    margin-left: auto; font-size: 9px; background: #e8e4dc;
+    color: #999; padding: 1px 5px; border-radius: 3px;
+  }
+  .page-content { flex: 1; overflow-x: auto; padding: 2.5rem 1.5rem; }
+
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+<nav class="sidebar">
+  <div class="sidebar-brand">Lydia's Toolbox</div>
+  <a class="nav-item" href="../index.html"><span class="nav-icon">🏠</span> 首頁</a>
+  <a class="nav-item" href="packing_list.html"><span class="nav-icon">📦</span> Packing List</a>
+  <a class="nav-item disabled" href="#"><span class="nav-icon">🗃️</span> 料號資料庫<span class="nav-badge">本機</span></a>
+  <a class="nav-item active" href="currency_v2.html"><span class="nav-icon">💱</span> 匯率換算</a>
+  <a class="nav-item" href="cbp_v2.html"><span class="nav-icon">🛃</span> CBP 助手</a>
+  <a class="nav-item" href="orders.html"><span class="nav-icon">📋</span> 訂單篩選</a>
+</nav>
+<div class="page-content">
+<div class="app">
+  <header>
+    <h1>匯率換算</h1>
+    <div class="status-row">
+      <div class="status-dot loading" id="dot"></div>
+      <span class="status-text" id="statusText">連線中…</span>
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="card active" id="card-TWD">
+      <div class="card-top">
+        <div class="cur-info">
+          <span class="flag">🇹🇼</span>
+          <div><div class="cur-name">新台幣</div><div class="cur-code">TWD</div></div>
+        </div>
+        <span class="rate-tag" id="tag-TWD">—</span>
+      </div>
+      <div class="inp-wrap">
+        <span class="cur-sym">NT$</span>
+        <input type="text" inputmode="decimal" id="inp-TWD" placeholder="0" />
+      </div>
+    </div>
+
+    <div class="divider"><div class="divider-line"></div><span class="divider-icon">⇅</span><div class="divider-line"></div></div>
+
+    <div class="card" id="card-USD">
+      <div class="card-top">
+        <div class="cur-info">
+          <span class="flag">🇺🇸</span>
+          <div><div class="cur-name">美金</div><div class="cur-code">USD</div></div>
+        </div>
+        <span class="rate-tag" id="tag-USD">1 USD</span>
+      </div>
+      <div class="inp-wrap">
+        <span class="cur-sym">US$</span>
+        <input type="text" inputmode="decimal" id="inp-USD" placeholder="0" />
+      </div>
+    </div>
+
+    <div class="divider"><div class="divider-line"></div><span class="divider-icon">⇅</span><div class="divider-line"></div></div>
+
+    <div class="card" id="card-CNY">
+      <div class="card-top">
+        <div class="cur-info">
+          <span class="flag">🇨🇳</span>
+          <div><div class="cur-name">人民幣</div><div class="cur-code">CNY</div></div>
+        </div>
+        <span class="rate-tag" id="tag-CNY">—</span>
+      </div>
+      <div class="inp-wrap">
+        <span class="cur-sym">¥</span>
+        <input type="text" inputmode="decimal" id="inp-CNY" placeholder="0" />
+      </div>
+    </div>
+
+    <div class="divider"><div class="divider-line"></div><span class="divider-icon">⇅</span><div class="divider-line"></div></div>
+
+    <div class="card" id="card-VND">
+      <div class="card-top">
+        <div class="cur-info">
+          <span class="flag">🇻🇳</span>
+          <div><div class="cur-name">越南盾</div><div class="cur-code">VND</div></div>
+        </div>
+        <span class="rate-tag" id="tag-VND">—</span>
+      </div>
+      <div class="inp-wrap">
+        <span class="cur-sym">₫</span>
+        <input type="text" inputmode="decimal" id="inp-VND" placeholder="0" />
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <button class="refresh-btn" id="refreshBtn">
+      <svg id="refreshIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+      </svg>
+      更新匯率
+    </button>
+    <button class="clear-btn" id="clearBtn">清除</button>
+  </div>
+
+  <div class="updated" id="updatedTime"></div>
+</div>
+
+<script>
+(function () {
+  var FALLBACK = { TWD: 32.5, USD: 1, CNY: 7.25, VND: 25300 };
+  var rates = Object.assign({}, FALLBACK);
+  var curs = ['TWD', 'USD', 'CNY', 'VND'];
+  var source = 'TWD';
+
+  var dot = document.getElementById('dot');
+  var statusText = document.getElementById('statusText');
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot' + (state ? ' ' + state : '');
+    statusText.textContent = msg;
+  }
+
+  function toUSD(amount, cur) { return amount / rates[cur]; }
+  function fromUSD(usd, cur) { return usd * rates[cur]; }
+
+  function fmt(val, cur) {
+    if (cur === 'VND') return Math.round(val).toLocaleString();
+    if (cur === 'TWD') return val.toFixed(2);
+    return val.toFixed(4);
+  }
+
+  function updateTags() {
+    curs.forEach(function (c) {
+      var tag = document.getElementById('tag-' + c);
+      if (c === 'USD') { tag.textContent = '1 USD'; return; }
+      tag.textContent = '1 USD = ' + fmt(fromUSD(1, c), c);
+    });
+  }
+
+  function recalc() {
+    var raw = document.getElementById('inp-' + source).value.replace(/,/g, '');
+    var amount = parseFloat(raw);
+    curs.forEach(function (c) {
+      if (c === source) return;
+      var el = document.getElementById('inp-' + c);
+      if (isNaN(amount) || raw === '') { el.value = ''; }
+      else { el.value = fmt(fromUSD(toUSD(amount, source), c), c); }
+    });
+  }
+
+  function setSource(cur) {
+    source = cur;
+    curs.forEach(function (c) {
+      document.getElementById('card-' + c).className = 'card' + (c === cur ? ' active' : '');
+    });
+  }
+
+  curs.forEach(function (cur) {
+    var inp = document.getElementById('inp-' + cur);
+    document.getElementById('card-' + cur).addEventListener('click', function () { inp.focus(); });
+    inp.addEventListener('focus', function () { setSource(cur); });
+    inp.addEventListener('input', function () { setSource(cur); recalc(); });
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', function () {
+    curs.forEach(function (c) { document.getElementById('inp-' + c).value = ''; });
+    setSource('TWD');
+    document.getElementById('inp-TWD').focus();
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', fetchRates);
+
+  function fetchRates() {
+    setStatus('loading', '連線中…');
+    var icon = document.getElementById('refreshIcon');
+    icon.classList.add('spin');
+
+    // 使用 fawazahmed0/exchange-api — 免費、無需 key、支援 VND
+    var url = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json';
+
+    fetch(url)
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        var r = data.usd;
+        if (!r) throw new Error('no data');
+        rates.TWD = r.twd || FALLBACK.TWD;
+        rates.CNY = r.cny || FALLBACK.CNY;
+        rates.VND = r.vnd || FALLBACK.VND;
+        rates.USD = 1;
+        setStatus('live', '即時匯率（每日更新）');
+        afterFetch(icon);
+      })
+      .catch(function () {
+        // 備用 CDN
+        fetch('https://latest.currency-api.pages.dev/v1/currencies/usd.json')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var r = data.usd;
+            if (!r) throw new Error('no data');
+            rates.TWD = r.twd || FALLBACK.TWD;
+            rates.CNY = r.cny || FALLBACK.CNY;
+            rates.VND = r.vnd || FALLBACK.VND;
+            rates.USD = 1;
+            setStatus('live', '即時匯率（備用來源）');
+            afterFetch(icon);
+          })
+          .catch(function () {
+            rates = Object.assign({}, FALLBACK);
+            setStatus('error', '無法連線，使用參考匯率');
+            afterFetch(icon);
+          });
+      });
+  }
+
+  function afterFetch(icon) {
+    icon.classList.remove('spin');
+    updateTags();
+    recalc();
+    var now = new Date();
+    document.getElementById('updatedTime').textContent =
+      '更新時間 ' +
+      now.toLocaleDateString('zh-TW') + ' ' +
+      now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  fetchRates();
+})();
+</script>
+</div></div>
+
+<script>
+// 本機 Flask 已有 nav.js sidebar，不需要 inline sidebar
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  document.addEventListener('DOMContentLoaded', function() {
+    var sb = document.querySelector('.sidebar');
+    var pw = document.querySelector('.page-wrapper');
+    if (sb) sb.style.display = 'none';
+    if (pw) { pw.style.display = 'block'; }
+    var pc = document.querySelector('.page-content');
+    if (pc) { pc.style.display = 'block'; pc.style.padding = ''; }
+  });
+}
+</script>
+<script src="/static/nav.js"></script>
+</body>
+</html>

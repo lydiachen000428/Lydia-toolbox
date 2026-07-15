@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CBP 報關品名建議助手</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e0ddd6;
+    --border-strong: #c8c4bc;
+    --text: #1a1917;
+    --text-muted: #6b6862;
+    --text-hint: #9e9a94;
+    --accent: #1a4fd6;
+    --accent-bg: #eef2fd;
+    --danger: #c02020;
+    --danger-bg: #fdf0f0;
+    --success: #1a7a3c;
+    --success-bg: #f0faf4;
+    --warn-bg: #fdf6e3;
+    --warn: #7a5c00;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--text);
+    color: #fff;
+    padding: 0 2rem;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-brand {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: #fff;
+  }
+  .topbar-tag {
+    font-size: 11px;
+    background: rgba(255,255,255,0.15);
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Layout */
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+  }
+
+  /* Hero */
+  .hero {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .hero p {
+    font-size: 14px;
+    color: var(--text-muted);
+    max-width: 520px;
+  }
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+  }
+  .badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    background: var(--surface);
+  }
+
+  /* Form card */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .form-section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--text-hint);
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+  .field { margin-bottom: 1.25rem; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .field label .req { color: var(--danger); margin-left: 2px; }
+  .char-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-hint);
+    font-weight: 400;
+  }
+  textarea, input[type="text"] {
+    width: 100%;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    transition: border-color 0.15s;
+  }
+  textarea { resize: vertical; min-height: 90px; }
+  textarea:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: #fff;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  /* Clear button on textarea */
+  .textarea-wrap { position: relative; }
+  .clear-field-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--border);
+    border: none;
+    border-radius: 4px;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: background 0.12s;
+  }
+  .clear-field-btn:hover { background: var(--border-strong); }
+  .textarea-wrap textarea:focus ~ .clear-field-btn { display: flex; }
+
+  /* Image upload */
+  .upload-zone {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    background: var(--bg);
+    position: relative;
+  }
+  .upload-zone:hover { background: #eceae4; border-color: var(--text-hint); }
+  .upload-zone.drag-over { background: var(--accent-bg); border-color: var(--accent); border-style: solid; }
+  .upload-zone.has-image { border-style: solid; border-color: var(--accent); }
+  .upload-icon { font-size: 22px; margin-bottom: 6px; }
+  .upload-zone p { font-size: 13px; color: var(--text-muted); }
+  #img-preview {
+    max-width: 100%;
+    max-height: 140px;
+    border-radius: var(--radius);
+    margin-top: 10px;
+    display: none;
+    object-fit: contain;
+  }
+  .remove-img-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--danger);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 13px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .upload-zone.has-image .remove-img-btn { display: flex; }
+
+  /* API Key field */
+  .apikey-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .apikey-row input { flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .toggle-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .toggle-btn:hover { background: var(--bg); }
+  .apikey-hint {
+    font-size: 12px;
+    color: var(--text-hint);
+    margin-top: 5px;
+  }
+  .apikey-hint a { color: var(--accent); text-decoration: none; }
+  .apikey-hint a:hover { text-decoration: underline; }
+  .apikey-saved-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid #a8dbb8;
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-left: 8px;
+    display: none;
+  }
+
+  /* Submit button */
+  .btn-submit {
+    width: 100%;
+    background: var(--text);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.02em;
+  }
+  .btn-submit:hover { opacity: 0.85; }
+  .btn-submit:active { transform: scale(0.99); }
+  .btn-submit:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-clear-all {
+    width: 100%;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 8px;
+    letter-spacing: 0.02em;
+  }
+  .btn-clear-all:hover { background: var(--bg); border-color: var(--border-strong); }
+
+  /* Loading */
+  .loading-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    display: none;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 2px solid var(--border);
+    border-top-color: var(--text);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-card p { font-size: 13px; color: var(--text-muted); }
+  .loading-steps { margin-top: 8px; font-size: 12px; color: var(--text-hint); font-family: 'IBM Plex Mono', monospace; }
+
+  /* Result */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: none;
+    animation: fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+  .result-header {
+    background: var(--text);
+    color: #fff;
+    padding: 12px 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+  .result-header-left {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    opacity: 0.7;
+  }
+  .result-pass { background: var(--success); color: #fff; font-size: 11px; padding: 3px 10px; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; }
+  .result-warn-badge { background: #e07800; color: #fff; font-size: 11px; padding: 3px 10px; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; }
+
+  .result-body { padding: 1.5rem; }
+
+  /* Recommended name */
+  .rec-label { font-size: 12px; color: var(--text-hint); font-family: 'IBM Plex Mono', monospace; margin-bottom: 8px; }
+  .rec-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-bg);
+    border: 1px solid #c5d5f7;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .copy-row { display: flex; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .copy-btn, .alt-btn {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    transition: background 0.15s;
+  }
+  .copy-btn:hover, .alt-btn:hover { background: var(--bg); }
+  .copied { color: var(--success); border-color: var(--success); }
+
+  /* Meta grid */
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.25rem; }
+  .meta-box {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .meta-box-label { font-size: 11px; color: var(--text-hint); font-family: 'IBM Plex Mono', monospace; margin-bottom: 4px; }
+  .meta-box-val { font-size: 14px; font-weight: 500; color: var(--text); }
+  .meta-box-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Three checks */
+  .checks-title { font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: var(--text-hint); margin-bottom: 10px; }
+  .check-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-status { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .check-key { font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: var(--text-hint); min-width: 100px; flex-shrink: 0; margin-top: 2px; }
+  .check-desc { font-size: 13px; color: var(--text-muted); }
+
+  .checks-box {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 14px;
+    margin-bottom: 1.25rem;
+  }
+
+  /* Old problem */
+  .problem-box {
+    border-left: 3px solid var(--danger);
+    background: var(--danger-bg);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--danger);
+    margin-bottom: 1.25rem;
+  }
+
+  /* Alternatives */
+  .alts-title { font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: var(--text-hint); margin-bottom: 8px; }
+  .alts-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; }
+  .alt-pill {
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    transition: background 0.12s;
+  }
+  .alt-pill:hover { background: var(--bg); }
+
+  /* Warning */
+  .warn-box {
+    background: var(--warn-bg);
+    border: 1px solid #e8d5a0;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--warn);
+    margin-bottom: 1.25rem;
+  }
+
+  /* History */
+  .history-section { margin-top: 2rem; }
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-hint);
+    text-transform: uppercase;
+  }
+  .history-actions { display: flex; gap: 6px; }
+  .history-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .history-btn:hover { background: var(--bg); }
+  .history-btn.danger:hover { background: var(--danger-bg); color: var(--danger); border-color: #f0c0c0; }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-old { font-size: 12px; color: var(--text-hint); }
+  .history-new { font-size: 13px; font-family: 'IBM Plex Mono', monospace; color: var(--accent); flex: 1; }
+  .history-hs { font-size: 11px; color: var(--text-hint); font-family: 'IBM Plex Mono', monospace; }
+  .history-copy { border: 1px solid var(--border); background: transparent; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-muted); }
+  .history-empty { font-size: 13px; color: var(--text-hint); padding: 1rem 0; font-family: 'IBM Plex Mono', monospace; }
+
+  /* Error */
+  .error-box {
+    background: var(--danger-bg);
+    border: 1px solid #f0c0c0;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--danger);
+    margin-bottom: 1rem;
+    display: none;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    font-size: 12px;
+    color: var(--text-hint);
+    font-family: 'IBM Plex Mono', monospace;
+    border-top: 1px solid var(--border);
+    margin-top: 3rem;
+  }
+
+  @media (max-width: 560px) {
+    .row { grid-template-columns: 1fr; }
+    .meta-grid { grid-template-columns: 1fr; }
+    .container { padding: 1.5rem 1rem 3rem; }
+    .hero h1 { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-brand">⬡ CBP CARGO NAME ADVISOR</span>
+  <span class="topbar-tag">CBP 2024/11 Compliant</span>
+</div>
+
+<div class="container">
+
+  <div class="hero">
+    <h1>美國海關報關<br>品名建議助手</h1>
+    <p>根據 CBP 2024年11月新規，輸入舊品名，自動產出符合「材質 + 產品 + 用途」三要素的合規英文品名。</p>
+    <div class="badges">
+      <span class="badge">材質明確</span>
+      <span class="badge">產品具體</span>
+      <span class="badge">用途清晰</span>
+      <span class="badge">HS Code 建議</span>
+      <span class="badge">越南 / 中國產地適用</span>
+    </div>
+  </div>
+
+  <!-- API Key -->
+  <div class="form-card">
+    <div class="form-section-title">API 設定（首次使用需填寫）</div>
+    <div class="field">
+      <label>
+        <span>Groq API Key <span class="req">*</span>
+          <span class="apikey-saved-badge" id="apikey-saved-badge">✓ 已儲存</span>
+        </span>
+      </label>
+      <div class="apikey-row">
+        <input type="password" id="api-key" placeholder="gsk_..." autocomplete="off">
+        <button class="toggle-btn" onclick="toggleKey()">顯示</button>
+      </div>
+      <p class="apikey-hint">
+        前往 <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> 取得免費 API Key。
+        金鑰僅儲存於您的瀏覽器 localStorage，不會傳送至其他地方。
+      </p>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="form-card">
+    <div class="form-section-title">產品資訊輸入</div>
+
+    <div class="field">
+      <label>
+        <span>舊品名 <span class="req">*</span></span>
+        <span class="char-count" id="char-count">0 字</span>
+      </label>
+      <div class="textarea-wrap">
+        <textarea id="old-name" placeholder="例如：PLASTIC CAR MOUNT / METAL PLATE KIT / FLEXIBLE STRAPS / PLASTICS PARTS..." oninput="updateCharCount()"></textarea>
+        <button class="clear-field-btn" title="清除" onclick="clearField('old-name', 'char-count')">✕</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label><span>產品連結（選填）</span></label>
+        <input type="text" id="product-url" placeholder="https://www.scosche.com/...">
+      </div>
+      <div class="field">
+        <label><span>補充說明（選填）</span></label>
+        <input type="text" id="extra-info" placeholder="POM材質、含螺絲、越南生產...">
+      </div>
+    </div>
+
+    <div class="field">
+      <label><span>產品照片（選填）</span></label>
+      <div class="upload-zone" id="upload-zone"
+           onclick="handleUploadClick(event)"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           ondrop="handleDrop(event)">
+        <div class="upload-icon" id="upload-icon">📷</div>
+        <p id="upload-text">點擊上傳或拖曳產品圖片（JPG / PNG）<br>AI 會辨識材質與外型</p>
+        <img id="img-preview" alt="產品預覽">
+        <button class="remove-img-btn" id="remove-img-btn" title="移除圖片" onclick="removeImage(event)">✕</button>
+      </div>
+      <input type="file" id="img-file" accept="image/*" style="display:none" onchange="handleFileSelect(event)">
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+
+    <button class="btn-submit" id="submit-btn" onclick="analyze()">
+      ▶ 產生合規品名建議
+    </button>
+    <button class="btn-clear-all" onclick="clearAll()">↺ 清除所有輸入</button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-card" id="loading-card">
+    <div class="spinner"></div>
+    <p>AI 正在分析品名合規性...</p>
+    <div class="loading-steps" id="loading-steps">初始化中...</div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card" id="result-card">
+    <div class="result-header">
+      <span class="result-header-left" id="result-old-name"></span>
+      <span id="compliance-badge" class="result-pass">✓ CBP COMPLIANT</span>
+    </div>
+    <div class="result-body">
+
+      <div class="rec-label">— 推薦合規品名</div>
+      <div class="rec-name" id="rec-name"></div>
+      <div class="copy-row">
+        <button class="copy-btn" id="copy-main-btn" onclick="copyMain()">⎘ 複製品名</button>
+        <span id="alt-btns"></span>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-box">
+          <div class="meta-box-label">材質判定</div>
+          <div class="meta-box-val" id="meta-material"></div>
+        </div>
+        <div class="meta-box">
+          <div class="meta-box-label">建議 HS Code</div>
+          <div class="meta-box-val" id="meta-hs"></div>
+          <div class="meta-box-sub" id="meta-hs-reason"></div>
+        </div>
+      </div>
+
+      <div class="checks-title">— CBP 三大要素核查</div>
+      <div class="checks-box">
+        <div class="check-item">
+          <span class="check-status" id="check1-icon"></span>
+          <span class="check-key">是什麼產品</span>
+          <span class="check-desc" id="check1-desc"></span>
+        </div>
+        <div class="check-item">
+          <span class="check-status" id="check2-icon"></span>
+          <span class="check-key">材質說明</span>
+          <span class="check-desc" id="check2-desc"></span>
+        </div>
+        <div class="check-item">
+          <span class="check-status" id="check3-icon"></span>
+          <span class="check-key">用途說明</span>
+          <span class="check-desc" id="check3-desc"></span>
+        </div>
+      </div>
+
+      <div class="checks-title">— 舊品名問題點</div>
+      <div class="problem-box" id="problem-box"></div>
+
+      <div id="warn-section"></div>
+
+      <div id="alts-section"></div>
+
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="history-section" id="history-section">
+    <div class="history-header">
+      <span class="history-title">查詢紀錄</span>
+      <div class="history-actions">
+        <button class="history-btn" onclick="exportCSV()">⬇ 匯出 CSV</button>
+        <button class="history-btn danger" onclick="clearHistory()">清除紀錄</button>
+      </div>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+</div>
+
+<footer>
+  CBP Cargo Name Advisor · 根據 U.S. CBP 2024/11 Cargo Description Guidelines 建置<br>
+  僅供參考，正式報關請與您的報關行確認。
+</footer>
+
+<script>
+const SYSTEM_PROMPT = `You are a senior US Customs (CBP) compliance expert. Your specialty is the strict 2024 November air cargo/e-commerce commodity description rules.
+
+Task: Convert old/vague cargo descriptions into fully CBP-compliant English commodity descriptions.
+
+CBP Three-Element Formula: [Specific Material] + [Specific Product] + for/used for [Specific Use]
+
+Rules:
+- FORBIDDEN vague terms: Parts, Accessories, Kit (alone), Material, Mount (alone), Sticker, Set, Items, Package Material, Goods, Products
+- If HS starts with 3926 → material must be "Plastic" or "Flexible plastic" or "Elastic plastic"
+- If HS starts with 7326 → material must be "Steel" or "Steel and plastic"
+- If HS starts with 3919 → use "Self-adhesive plastic" or "Plastic adhesive"
+- If HS starts with 4819 → use "Printed paper" or "Corrugated paper"
+- For multi-position car mounts (window/dash/vent/suction) → always use "for vehicles" or "for vehicle interior mounting" NOT specific positions
+- For assembly components/parts → add "used for [product] assembly" or "used for phone holder or mount assembly"
+- Aim for 5-9 words. Under 10 words always.
+- "Mount" is acceptable only when preceded by specific material and followed by specific use
+- Kit is acceptable only when it explicitly lists contents: "Steel plate kit, includes film and manual"
+
+Historical approved examples from this user's products:
+- PLASTIC CAR MOUNT → Plastic mobile phone holders for vehicles [3926.90]
+- METAL PLATE KIT (with film+manual) → Steel adhesive plate kit, includes film and manual [7326.90]
+- FLEXIBLE STRAPS (tool, TPE) → Flexible plastic straps for securing tools [3926.90]
+- RING STICKER (adhesive ring) → Plastic ring plates with adhesive for phones [3926.90]
+- SPEAKER ADAPTER SET → Plastic speaker adapter brackets for vehicle audio [3926.90]
+- PLASTICS PARTS (POM base) → Plastic mounting base for phone holder assembly [3926.90]
+- PROTECTION FILM → Plastic protection films for phone holders [3919.90]
+- GIFT BOX / COLOR BOX → Printed paper gift boxes for retail packaging [4819]
+- U-BOLT MOUNT (3926) → Plastic U-bolt mount for phone holder assembly [3926.90]
+- AMP PLATE (POM) → Plastic mounting base, used for phone holder or mount assembly [3926.90]
+
+Output ONLY valid JSON, no markdown fences, no explanation outside JSON.
+IMPORTANT: All explanatory text fields (hs_reason, what_it_is, made_of, used_for, old_problem, warning) MUST be written in Traditional Chinese (繁體中文). Only "recommended", "material", "hs_code", and "alternatives" remain in English.
+{
+  "recommended": "the single best compliant name (5-9 words, in English)",
+  "material": "short material description e.g. Plastic (TPE), Steel, Composite (in English)",
+  "hs_code": "e.g. 3926.90",
+  "hs_reason": "用一句繁體中文說明為何適用此 HS Code",
+  "what_it_is": "✓ 明確 — [繁體中文說明] 或 ✗ 不明確 — [繁體中文說明]",
+  "made_of": "✓ 已標明 — [繁體中文說明] 或 ✗ 未標明 — [繁體中文說明]",
+  "used_for": "✓ 已指定 — [繁體中文說明] 或 ✗ 未指定 — [繁體中文說明]",
+  "old_problem": "用一句繁體中文說明舊品名不符合 CBP 2024 規範的原因",
+  "alternatives": ["alt 1 (5-8 words, in English)", "alt 2 (5-8 words, in English)"],
+  "warning": "繁體中文特別風險說明，或空字串"
+}`;
+
+// ── localStorage helpers ─────────────────────────────────────────────
+const LS_KEY_APIKEY  = 'cbp_advisor_apikey';
+const LS_KEY_HISTORY = 'cbp_advisor_history';
+
+function saveApiKey(key) { try { localStorage.setItem(LS_KEY_APIKEY, key); } catch(e) {} }
+function loadApiKey()    { try { return localStorage.getItem(LS_KEY_APIKEY) || ''; } catch(e) { return ''; } }
+function saveHistory(arr){ try { localStorage.setItem(LS_KEY_HISTORY, JSON.stringify(arr)); } catch(e) {} }
+function loadHistory()   { try { return JSON.parse(localStorage.getItem(LS_KEY_HISTORY) || '[]'); } catch(e) { return []; } }
+
+// ── State ────────────────────────────────────────────────────────────
+let imageBase64 = null;
+let imageType = 'image/jpeg';
+let history = loadHistory();
+
+// ── Init ─────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const savedKey = loadApiKey();
+  if (savedKey) {
+    document.getElementById('api-key').value = savedKey;
+    document.getElementById('apikey-saved-badge').style.display = 'inline';
+  }
+  renderHistory();
+  document.getElementById('api-key').addEventListener('input', function() {
+    const val = this.value.trim();
+    if (val.length > 10) {
+      saveApiKey(val);
+      document.getElementById('apikey-saved-badge').style.display = 'inline';
+    }
+  });
+});
+
+// ── Image upload ──────────────────────────────────────────────────────
+function handleUploadClick(e) {
+  if (e.target.id === 'remove-img-btn') return;
+  document.getElementById('img-file').click();
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) loadImageFile(file);
+}
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.add('drag-over');
+}
+function handleDragLeave() {
+  document.getElementById('upload-zone').classList.remove('drag-over');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadImageFile(file);
+  else showError('請上傳圖片檔案（JPG / PNG）。');
+}
+function loadImageFile(file) {
+  imageType = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    imageBase64 = ev.target.result.split(',')[1];
+    const preview = document.getElementById('img-preview');
+    preview.src = ev.target.result;
+    preview.style.display = 'block';
+    document.getElementById('upload-zone').classList.add('has-image');
+    document.getElementById('upload-icon').style.display = 'none';
+    document.getElementById('upload-text').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+function removeImage(e) {
+  e.stopPropagation();
+  imageBase64 = null;
+  const preview = document.getElementById('img-preview');
+  preview.src = ''; preview.style.display = 'none';
+  document.getElementById('upload-zone').classList.remove('has-image');
+  document.getElementById('upload-icon').style.display = '';
+  document.getElementById('upload-text').style.display = '';
+  document.getElementById('img-file').value = '';
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────
+function toggleKey() {
+  const inp = document.getElementById('api-key');
+  const btn = event.target;
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '隱藏'; }
+  else { inp.type = 'password'; btn.textContent = '顯示'; }
+}
+function updateCharCount() {
+  const val = document.getElementById('old-name').value;
+  document.getElementById('char-count').textContent = val.length + ' 字';
+}
+function clearField(fieldId, counterId) {
+  document.getElementById(fieldId).value = '';
+  if (counterId) document.getElementById(counterId).textContent = '0 字';
+}
+function clearAll() {
+  clearField('old-name', 'char-count');
+  document.getElementById('product-url').value = '';
+  document.getElementById('extra-info').value = '';
+  removeImage({ stopPropagation: () => {} });
+  document.getElementById('result-card').style.display = 'none';
+  document.getElementById('error-box').style.display = 'none';
+}
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = msg;
+  box.style.display = 'block';
+  setTimeout(() => box.style.display = 'none', 6000);
+}
+
+// ── Loading ───────────────────────────────────────────────────────────
+const loadingTexts = ['解析舊品名結構...','比對 CBP 2024 規範...','判定材質與稅則...','生成合規品名建議...','核查三大要素...'];
+let loadingTimer = null;
+function startLoading() {
+  let i = 0;
+  const el = document.getElementById('loading-steps');
+  el.textContent = loadingTexts[0];
+  loadingTimer = setInterval(() => { i = (i + 1) % loadingTexts.length; el.textContent = loadingTexts[i]; }, 1200);
+}
+function stopLoading() { if (loadingTimer) clearInterval(loadingTimer); }
+
+// ── Analyze ───────────────────────────────────────────────────────────
+async function analyze() {
+  const apiKey = document.getElementById('api-key').value.trim();
+  const oldName = document.getElementById('old-name').value.trim();
+  const url = document.getElementById('product-url').value.trim();
+  const extra = document.getElementById('extra-info').value.trim();
+
+  if (!apiKey) { showError('請先填入 Groq API Key。'); return; }
+  if (!oldName) { showError('請輸入舊品名。'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = '分析中...';
+  document.getElementById('loading-card').style.display = 'block';
+  document.getElementById('result-card').style.display = 'none';
+  startLoading();
+
+  let userText = `Old cargo name: "${oldName}"`;
+  if (url) userText += `\nProduct URL for reference: ${url}`;
+  if (extra) userText += `\nAdditional info: ${extra}`;
+  userText += '\n\nReturn only JSON.';
+
+  let userContent;
+  if (imageBase64) {
+    userContent = [
+      { type: 'text', text: userText },
+      { type: 'image_url', image_url: { url: `data:${imageType};base64,${imageBase64}` } }
+    ];
+  } else {
+    userContent = userText;
+  }
+
+  const groqBody = {
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userContent }
+    ],
+    temperature: 0.2,
+    max_tokens: 1000
+  };
+
+  try {
+    const res = await fetch(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(groqBody)
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    showResult(oldName, parsed);
+    addHistory(oldName, parsed);
+  } catch (e) {
+    document.getElementById('loading-card').style.display = 'none';
+    showError('分析失敗：' + e.message + '。請確認 API Key 是否正確。');
+  } finally {
+    stopLoading();
+    btn.disabled = false; btn.textContent = '▶ 產生合規品名建議';
+    document.getElementById('loading-card').style.display = 'none';
+  }
+}
+
+// ── Show Result ───────────────────────────────────────────────────────
+function showResult(oldName, r) {
+  document.getElementById('result-old-name').textContent = '舊品名：' + oldName;
+  document.getElementById('rec-name').textContent = r.recommended;
+  document.getElementById('meta-material').textContent = r.material;
+  document.getElementById('meta-hs').textContent = r.hs_code;
+  document.getElementById('meta-hs-reason').textContent = r.hs_reason;
+
+  const checks = [
+    { id: 'check1', val: r.what_it_is },
+    { id: 'check2', val: r.made_of },
+    { id: 'check3', val: r.used_for },
+  ];
+  let allPass = true;
+  checks.forEach(({ id, val }) => {
+    const pass = val.startsWith('✓');
+    if (!pass) allPass = false;
+    document.getElementById(id + '-icon').textContent = pass ? '✅' : '❌';
+    document.getElementById(id + '-desc').textContent = val;
+  });
+
+  // 動態合規徽章
+  const badge = document.getElementById('compliance-badge');
+  if (allPass) { badge.textContent = '✓ CBP COMPLIANT'; badge.className = 'result-pass'; }
+  else { badge.textContent = '⚠ REVIEW NEEDED'; badge.className = 'result-warn-badge'; }
+
+  document.getElementById('problem-box').textContent = r.old_problem;
+
+  const warnSec = document.getElementById('warn-section');
+  warnSec.innerHTML = (r.warning && r.warning.length > 3) ? `<div class="warn-box">⚠ ${r.warning}</div>` : '';
+
+  const altSec = document.getElementById('alts-section');
+  if (r.alternatives && r.alternatives.length) {
+    const pills = r.alternatives.map(a =>
+      `<span class="alt-pill" onclick="copyText('${a.replace(/'/g,"\\'")}', this)">${a}</span>`
+    ).join('');
+    altSec.innerHTML = `<div class="checks-title" style="margin-top:1rem">— 其他可接受寫法（點擊複製）</div><div class="alts-pills">${pills}</div>`;
+  } else { altSec.innerHTML = ''; }
+
+  document.getElementById('result-card').style.display = 'block';
+  document.getElementById('result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Copy ──────────────────────────────────────────────────────────────
+function copyMain() { copyText(document.getElementById('rec-name').textContent, document.getElementById('copy-main-btn')); }
+function copyText(text, el) {
+  navigator.clipboard.writeText(text).then(() => {
+    if (el) {
+      const orig = el.textContent; el.textContent = '已複製！'; el.classList.add('copied');
+      setTimeout(() => { el.textContent = orig; el.classList.remove('copied'); }, 1800);
+    }
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  });
+}
+
+// ── History ───────────────────────────────────────────────────────────
+function addHistory(oldName, r) {
+  const ts = new Date().toLocaleString('zh-TW', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+  history.unshift({ oldName, rec: r.recommended, hs: r.hs_code, ts });
+  if (history.length > 50) history.pop();
+  saveHistory(history);
+  renderHistory();
+}
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!history.length) {
+    list.innerHTML = '<div class="history-empty">尚無查詢紀錄</div>';
+    return;
+  }
+  list.innerHTML = history.map(h => `
+    <div class="history-item">
+      <div style="flex:1;min-width:0">
+        <div class="history-old">${escHtml(h.oldName)}${h.ts ? ' <span style="color:var(--text-hint);font-size:10px">· ' + h.ts + '</span>' : ''}</div>
+        <div class="history-new">${escHtml(h.rec)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span class="history-hs">${escHtml(h.hs)}</span>
+        <button class="history-copy" onclick="copyText('${h.rec.replace(/'/g,"\\'")}', this)">複製</button>
+      </div>
+    </div>
+  `).join('');
+}
+function clearHistory() {
+  if (!confirm('確定要清除所有查詢紀錄嗎？')) return;
+  history = []; saveHistory(history); renderHistory();
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!history.length) { showError('尚無紀錄可匯出。'); return; }
+  const header = ['時間', '舊品名', '建議合規品名', 'HS Code'];
+  const rows = history.map(h => [h.ts || '', h.oldName, h.rec, h.hs].map(v => '"' + String(v).replace(/"/g, '""') + '"'));
+  const csv = '\uFEFF' + [header, ...rows].map(r => r.join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = 'CBP品名查詢紀錄_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') analyze(); });
+</script>
+</body>
+</html>
