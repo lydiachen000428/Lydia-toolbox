@@ -408,9 +408,20 @@ def cbp_analyze():
         return jsonify({'error': 'Please set groq_api_key in config.json'}), 500
 
     body = request.get_json(force=True)
+    # Normalize messages: content must be a plain string (not array)
+    raw_messages = body.get('messages', [])
+    messages = []
+    for msg in raw_messages:
+        content = msg.get('content', '')
+        if isinstance(content, list):
+            content = '\n'.join(
+                item.get('text', '') for item in content
+                if isinstance(item, dict) and item.get('type') == 'text'
+            )
+        messages.append({**msg, 'content': str(content)})
     payload = json.dumps({
-        'model': 'meta-llama/llama-4-scout-17b-16e-instruct',
-        'messages': body.get('messages', []),
+        'model': 'llama-3.1-8b-instant',
+        'messages': messages,
         'temperature': body.get('temperature', 0.3),
         'max_tokens': body.get('max_tokens', 1024),
     }).encode('utf-8')
@@ -421,6 +432,7 @@ def cbp_analyze():
         headers={
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {groq_key}',
+            'User-Agent': 'groq-python/0.9.0',
         },
         method='POST'
     )
@@ -430,6 +442,7 @@ def cbp_analyze():
         return jsonify(result)
     except urllib.error.HTTPError as e:
         err_body = e.read().decode('utf-8', errors='replace')
+        print(f'[GROQ ERROR {e.code}] {err_body}')
         return jsonify({'error': f'Groq API error {e.code}', 'detail': err_body}), e.code
     except Exception as e:
         return jsonify({'error': str(e)}), 500
