@@ -13,9 +13,10 @@
     { icon: 'ti-home',            label: '首頁',       path: '/' },
     { icon: 'ti-package',         label: 'Packing List', path: '/packing' },
     { icon: 'ti-database',        label: '料號資料庫', path: '/items' },
-    { icon: 'ti-currency-dollar', label: '匯率換算',   path: '/tools/currency' },
-    { icon: 'ti-shield-check',    label: 'CBP 助手',   path: '/tools/cbp' },
     { icon: 'ti-filter',          label: '訂單篩選',   path: '/tools/orders' },
+    { icon: 'ti-list-check',      label: 'PO出貨文字化', path: '/tools/po-formatter' },
+    { icon: 'ti-shield-check',    label: 'CBP 助手',   path: '/tools/cbp' },
+    { icon: 'ti-currency-dollar', label: '匯率換算',   path: '/tools/currency' },
   ];
 
   var cur = window.location.pathname;

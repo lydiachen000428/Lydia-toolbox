@@ -56,6 +56,10 @@ def index():
 def packing():
     return send_from_directory(str(TMPL_DIR), 'packing.html')
 
+@app.route('/tools/po-formatter')
+def tool_po_formatter():
+    return send_from_directory(str(TMPL_DIR), 'po_formatter.html')
+
 @app.route('/tools/currency')
 def tool_currency():
     return send_from_directory(str(TMPL_DIR), 'currency_v2.html')
@@ -233,7 +237,7 @@ def parse_subject():
 
     import re as _re
     _LASER_RE2  = _re.compile(r'鐳雕號[:：]\s*(\d+)')
-    _ITEM_RE2   = _re.compile(r'(8SH[A-Z]\d{6}|S6SH\d{6})', _re.I)
+    _ITEM_RE2   = _re.compile(r'(8SH[A-Z]\d{6}|S6SH\d{6}|KLSH\d{6})', _re.I)
     _lines = email_body.splitlines()
     _laser_sections = []
     for _i, _ln in enumerate(_lines):
@@ -420,7 +424,7 @@ def cbp_analyze():
             )
         messages.append({**msg, 'content': str(content)})
     payload = json.dumps({
-        'model': 'llama-3.1-8b-instant',
+        'model': 'openai/gpt-oss-20b',
         'messages': messages,
         'temperature': body.get('temperature', 0.3),
         'max_tokens': body.get('max_tokens', 1024),

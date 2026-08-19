@@ -92,7 +92,7 @@ td input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
     <div style="display:grid;gap:10px" id="step1-body">
       <div class="form-group">
         <label>郵件內文（含料號和數量的部分即可，Ctrl+Enter 直接解析）</label>
-        <textarea id="email-body-input" rows="10" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-family:monospace;resize:vertical" placeholder="把信件內容貼進來…（含 8SHxxxx 料號）"></textarea>
+        <textarea id="email-body-input" rows="10" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-family:monospace;resize:vertical" placeholder="把信件內容貼進來…（含 8SHxxxx / KLSHxxxxxx 料號）"></textarea>
       </div>
       <div>
         <button class="btn btn-primary" onclick="parseWithBody()" style="padding:9px 20px">解析</button>
@@ -215,7 +215,7 @@ function parseWithBody() {
     if (data.error) { showMsg('step1-msg','err', data.error); return; }
     const n = (data.items||[]).length;
     if (n === 0) {
-      showMsg('step1-msg','warn','未能從內文解析到料號，請確認格式（含 8SHxxxx 料號）');
+      showMsg('step1-msg','warn','未能從內文解析到料號，請確認格式（例：8SHB130232*5040pcs 或 KLSH000043*1040pcs）');
       return;
     }
     showMsg('step1-msg','info', `✅ 解析到 ${n} 個料號`);

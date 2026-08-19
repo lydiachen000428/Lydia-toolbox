@@ -4,9 +4,9 @@ outlook_search.py — 解析郵件內文，抽取料號、pcs、CTN、鐳雕號
 import re
 from html.parser import HTMLParser
 
-ITEM_RE    = re.compile(r'(8SH[A-Z]\d{6}|S6SH\d{6}|\d{9,})')
-# 格式1: 料號*2000pcs  (order mail 格式)；涵蓋 8SH/S6SH 及純數字料號（9碼以上）
-PCS_STAR_RE = re.compile(r'(8SH[A-Z]\d{6}|S6SH\d{6}|\d{9,})\*(\d+)\s*pcs', re.I)
+ITEM_RE    = re.compile(r'(8SH[A-Z]\d{6}|S6SH\d{6}|KLSH\d{6}|\d{9,})')
+# 格式1: 料號*2000pcs  (order mail 格式)；涵蓋 8SH/S6SH/KLSH 及純數字料號（9碼以上）
+PCS_STAR_RE = re.compile(r'(8SH[A-Z]\d{6}|S6SH\d{6}|KLSH\d{6}|\d{9,})[^\d]+(\d+)', re.I)
 # 格式2: 料號 ... N CTN
 CTN_RE     = re.compile(r'(\d+)\s*(?:CTN|CTNS|Carton|箱)', re.I)
 PO_RE      = re.compile(r'PO\s*#?\s*(\d{5,7})', re.I)

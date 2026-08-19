@@ -310,8 +310,8 @@ let dbReady = false;
 })();
 
 // ── Regex (ported from outlook_search.py) ───────────────────────────────────
-const PCS_STAR_RE = /(8SH[A-Z]\d{6}|S6SH\d{6})\*(\d+)\s*pcs/gi;
-const ITEM_RE     = /(8SH[A-Z]\d{6}|S6SH\d{6})/gi;
+const PCS_STAR_RE = /(8SH[A-Z]\d{6}|S6SH\d{6}|KLSH\d{6})[^\d]+(\d+)/gi;
+const ITEM_RE     = /(8SH[A-Z]\d{6}|S6SH\d{6}|KLSH\d{6})/gi;
 const CTN_RE      = /(\d+)\s*(?:CTN|CTNS|Carton|箱)/i;
 const LASER_RE    = /鐳雕號[:：]\s*(\d+)/i;
 
@@ -361,7 +361,7 @@ function parseEmail() {
   if (!body) { setStatus('step1Status', 'warn', '請貼入郵件內文'); return; }
 
   const raw = parseEmailBody(body);
-  if (!raw.length) { setStatus('step1Status', 'warn', '未找到料號，請確認格式（例：8SHB130232*5040pcs）'); return; }
+  if (!raw.length) { setStatus('step1Status', 'warn', '未找到料號，請確認格式（例：8SHB130232*5040pcs 或 KLSH000043*1040pcs）'); return; }
 
   const rows = raw.map(r => {
     const spec = itemsDb[r.item_no] || {};

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PO出貨文字化</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --border: #e0ddd6;
+    --border-focus: #1a1a1a;
+    --text: #1a1a1a;
+    --text-muted: #888880;
+    --text-hint: #b8b5ae;
+    --accent: #c17f3b;
+    --accent-light: #f0ede6;
+    --warn-bg: #fbf1e2;
+    --warn-border: #e6c98a;
+    --warn-text: #8a5a00;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Noto Sans TC', sans-serif;
+  }
+
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; margin: 0; }
+
+  .app { width: 100%; max-width: 900px; margin: 0 auto; }
+
+  header { margin-bottom: 1.6rem; }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .page-title { font-size: 22px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+
+  .hint {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .toolbar { display: flex; gap: 10px; margin: 1.2rem 0 1rem 0; }
+
+  button {
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 9px 18px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  button:hover { border-color: #aaa; }
+  button.primary {
+    background: var(--text);
+    border-color: var(--text);
+    color: #fff;
+    font-weight: 500;
+  }
+  button.primary:hover { background: #333; border-color: #333; }
+
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 720px) { .panels { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .card-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+  .copy-btn { font-size: 11.5px; padding: 5px 12px; border-radius: 8px; }
+
+  textarea {
+    flex: 1;
+    border: none;
+    resize: none;
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    min-height: 420px;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+  }
+  textarea::placeholder { color: var(--text-hint); }
+
+  .warnings {
+    margin-top: 14px;
+    background: var(--warn-bg);
+    border: 1.5px solid var(--warn-border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 12.5px;
+    color: var(--warn-text);
+    display: none;
+  }
+  .warnings.show { display: block; }
+  .warnings-title { font-weight: 700; margin-bottom: 6px; }
+  .warnings ul { margin: 0; padding-left: 18px; }
+  .warnings li { margin-bottom: 3px; }
+
+  .status {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    margin-top: 10px;
+    min-height: 16px;
+  }
+  .status.ok { color: #2d6a4f; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: #1a1a1a;
+    color: #fff;
+    padding: 9px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Shared Sidebar ─────────────────────────────────── */
+  .page-wrapper { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 200px; min-height: 100vh; background: #f5f4f0;
+    border-right: 1px solid #e0ddd6; display: flex;
+    flex-direction: column; flex-shrink: 0; position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar-brand {
+    padding: 1.4rem 1.2rem 1rem; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: #aaa;
+  }
+  .sidebar .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0.6rem 1.2rem; font-size: 13.5px; color: #444;
+    text-decoration: none; border-right: 3px solid transparent;
+    transition: background 0.12s, color 0.12s;
+  }
+  .sidebar .nav-item:hover { background: #edeae4; color: #1a1a1a; }
+  .sidebar .nav-item.active {
+    color: #c17f3b; border-right-color: #c17f3b; font-weight: 500; background: #edeae4;
+  }
+  .sidebar .nav-item.disabled { color: #bbb; pointer-events: none; }
+  .sidebar .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .sidebar .nav-badge {
+    margin-left: auto; font-size: 9px; background: #e8e4dc;
+    color: #999; padding: 1px 5px; border-radius: 3px;
+  }
+  .page-content { flex: 1; overflow-x: auto; padding: 2.5rem 1.5rem; }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+<nav class="sidebar">
+  <div class="sidebar-brand">Lydia's Toolbox</div>
+  <a class="nav-item" href="../index.html"><span class="nav-icon">🏠</span> 首頁</a>
+  <a class="nav-item" href="packing_list.html"><span class="nav-icon">📦</span> Packing List</a>
+  <a class="nav-item disabled" href="#"><span class="nav-icon">🗃️</span> 料號資料庫<span class="nav-badge">本機</span></a>
+  <a class="nav-item" href="orders.html"><span class="nav-icon">📋</span> 訂單篩選</a>
+  <a class="nav-item active" href="po_formatter.html"><span class="nav-icon">🧾</span> PO出貨文字化</a>
+  <a class="nav-item" href="cbp_v2.html"><span class="nav-icon">🛃</span> CBP 助手</a>
+  <a class="nav-item" href="currency_v2.html"><span class="nav-icon">💱</span> 匯率換算</a>
+</nav>
+<div class="page-content">
+<div class="app">
+  <header>
+    <h1>出貨工具</h1>
+    <div class="page-title">PO出貨文字化</div>
+    <div class="hint">
+      貼上從 Excel / ERP 複製的資料(每行以 Tab 分隔多個欄位)。工具依「第 1 欄 PO 號」分組,每行取「第 3 欄品項名稱」+「該行最後一欄數值」,自動整理成 PO# 標題與品項清單。
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="primary" onclick="convert()">轉換</button>
+    <button onclick="clearAll()">清除</button>
+  </div>
+
+  <div class="panels">
+    <div class="card">
+      <div class="card-top"><span>原始資料(貼上處)</span></div>
+      <textarea id="inputArea" placeholder="範例(Tab 分隔):&#10;162000&#9;12/9/2025&#9;MMWSM-XCES0&#9;SCOAL&#9;5&#9;1000&#9;8/6/26&#9;1000&#10;162832&#9;5/5/2026&#9;IHW10-SP1&#9;SCOAL&#9;2&#9;50400&#9;8/6/26&#9;18720"></textarea>
+    </div>
+    <div class="card">
+      <div class="card-top">
+        <span>轉換結果</span>
+        <button class="copy-btn" onclick="copyResult()">複製結果</button>
+      </div>
+      <textarea id="resultArea" placeholder="按「轉換」後,結果會顯示在這裡" readonly></textarea>
+    </div>
+  </div>
+
+  <div class="warnings" id="warningsBox">
+    <div class="warnings-title">⚠ 以下幾行需要留意</div>
+    <ul id="warningsList"></ul>
+  </div>
+
+  <div class="status" id="statusLine"></div>
+</div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function convert() {
+  const raw = document.getElementById('inputArea').value.split(/\r?\n/);
+  const warnings = [];
+  const groups = new Map();
+  let processedCount = 0;
+
+  raw.forEach((lineRaw, idx) => {
+    const lineNum = idx + 1;
+    if (lineRaw.trim() === '') return;
+
+    const fields = lineRaw.split('\t').map(f => f.trim());
+
+    if (fields.length < 3) {
+      warnings.push(`第 ${lineNum} 行:欄位不足(只有 ${fields.length} 欄),已略過`);
+      return;
+    }
+
+    const po = fields[0];
+    const item = fields[2];
+    const qty = fields[fields.length - 1];
+
+    if (!po) {
+      warnings.push(`第 ${lineNum} 行:PO 號是空的,已略過`);
+      return;
+    }
+    if (!item) {
+      warnings.push(`第 ${lineNum} 行:品項名稱是空的,已略過`);
+      return;
+    }
+
+    const numericCheck = qty.replace(/,/g, '');
+    if (qty === '' || !/^-?\d+(\.\d+)?$/.test(numericCheck)) {
+      warnings.push(`第 ${lineNum} 行:最後一欄「${qty || '(空白)'}」看起來不是數字,已照原樣帶入,請確認`);
+    }
+
+    if (!groups.has(po)) groups.set(po, []);
+    groups.get(po).push({ item, qty });
+    processedCount++;
+  });
+
+  const outputLines = [];
+  for (const [po, items] of groups) {
+    outputLines.push(`PO#${po}`);
+    items.forEach(it => outputLines.push(`${it.item} *${it.qty}PCS`));
+    outputLines.push('');
+  }
+  if (outputLines.length && outputLines[outputLines.length - 1] === '') {
+    outputLines.pop();
+  }
+
+  document.getElementById('resultArea').value = outputLines.join('\n');
+  renderWarnings(warnings);
+
+  const statusLine = document.getElementById('statusLine');
+  if (groups.size === 0) {
+    statusLine.textContent = '沒有可轉換的資料,請確認貼上的內容。';
+    statusLine.className = 'status';
+  } else {
+    statusLine.textContent = `已轉換 ${groups.size} 個 PO,共 ${processedCount} 個品項。`;
+    statusLine.className = 'status ok';
+  }
+}
+
+function renderWarnings(warnings) {
+  const box = document.getElementById('warningsBox');
+  const list = document.getElementById('warningsList');
+  list.innerHTML = '';
+  if (warnings.length === 0) {
+    box.classList.remove('show');
+    return;
+  }
+  warnings.forEach(w => {
+    const li = document.createElement('li');
+    li.textContent = w;
+    list.appendChild(li);
+  });
+  box.classList.add('show');
+}
+
+function clearAll() {
+  document.getElementById('inputArea').value = '';
+  document.getElementById('resultArea').value = '';
+  document.getElementById('statusLine').textContent = '';
+  document.getElementById('statusLine').className = 'status';
+  renderWarnings([]);
+}
+
+function copyResult() {
+  const resultArea = document.getElementById('resultArea');
+  const text = resultArea.value;
+  if (!text) {
+    showToast('目前沒有結果可複製');
+    return;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => showToast('已複製到剪貼簿'),
+      () => fallbackCopy(resultArea)
+    );
+  } else {
+    fallbackCopy(resultArea);
+  }
+}
+
+function fallbackCopy(textarea) {
+  textarea.removeAttribute('readonly');
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showToast('已複製到剪貼簿');
+  } catch (e) {
+    showToast('複製失敗,請手動選取複製');
+  }
+  textarea.setAttribute('readonly', true);
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+</script>
+
+<script>
+// 本機 Flask 已有 nav.js sidebar,不需要 inline sidebar
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  document.addEventListener('DOMContentLoaded', function() {
+    var sb = document.querySelector('.sidebar');
+    var pw = document.querySelector('.page-wrapper');
+    if (sb) sb.style.display = 'none';
+    if (pw) { pw.style.display = 'block'; }
+    var pc = document.querySelector('.page-content');
+    if (pc) { pc.style.display = 'block'; pc.style.padding = ''; }
+  });
+}
+</script>
+<script src="/static/nav.js"></script>
+</body>
+</html>

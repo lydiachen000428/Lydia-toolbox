@@ -33,14 +33,15 @@ Notes:
 - Each item CTN range always starts from 1
 - Shipping marks use the standard SCOSCHE format (Part Number / PO# / Date Code / C/N / Qty / NW / GW / Dims mm / Dims inches / Made in Vietnam / ROHS)
 - Items 1-3 go across 3 columns (A/E/I); items 4+ continue below in col A
-- Pallet items (has_pallet=true) trigger automatic generation of a second "WITH PLT" sheet.
+- Pallet items (has_pallet=true) trigger automatic generation of a second "PLT" sheet.
   Extra fields required per pallet item:
     "has_pallet":    true,
     "ctns_per_plt":  240,          <- CTNs per pallet
     "plt_dim":       "121.92*101.6*71.2",  <- loaded pallet W*D*H in cm
     "plt_nw_extra":  9.92,         <- extra KG added to N.W. w/pallet (pallet tare)
     "plt_gw_extra":  4.0           <- extra KG added to G.W. w/pallet
-  Optional: "po" per item overrides global po on WITH PLT sheet.
+  Optional: "po" per item overrides global po on PLT sheet.
+  Sheet order in output: PAC → PLT → INV
 """
 
 import argparse
@@ -58,35 +59,7 @@ except ImportError:
 # Red font: MUST be FFFF0000 (fully opaque). 'FF0000' = transparent (00FF0000).
 RED_FONT = Font(name='Times New Roman', color='FFFF0000')
 
-# ── WITH PLT sheet constants ──────────────────────────────────────────────────
-_PLT_HEADER_A = [
-    'COMART CORPORATION',
-    'TEL:+886-2-89111133   FAX:+886-2-86653056',
-    '3F., No.12, Lane 235, Baociao Rd., Sindian Dist, New Taipei City 23145, Taiwan, R.O.C.',
-    'PACKING LIST',
-    'CONSIGNEE: SCOSCHE INDUSTRIES INC.',
-    'SHIP TO: 188 COMMERCE WAY SPRUCE PINE, AL 35585, USA',
-    'ATTN: DUSTIN MURRAY',
-    'EIN: 95-3659275',
-    'TEL: 256-277-0045',
-]
-
-_PLT_COL_HEADERS = [
-    (1,  'CTN #'),
-    (4,  '# of CTNS'),
-    (5,  '# of Pallets'),
-    (9,  'PO#'),
-    (10, 'Item No'),
-    (11, 'Description'),
-    (12, 'Quantity'),
-    (13, 'CTN/PLT'),
-    (14, 'N.W.(CTN)'),
-    (15, 'G.W. (CTN)'),
-    (16, 'Dimension(CM)'),
-    (17, 'CBM W/Pallet'),
-    (18, 'N.W. W/Pallet'),
-    (19, 'G.W.W/Pallet'),
-]
+# (PLT sheet constants removed — now uses SCOSCHE_PLT_TEMPLATE.xlsx for formatting)
 
 KG_TO_LBS = 2.20462
 MM_TO_IN   = 0.03937
@@ -185,38 +158,71 @@ def write_shipping_mark(ws, row_start, col, item, po):
     return row_start + len(lines)
 
 
-def build_with_plt_sheet(wb, po, today, pallet_items, ship_to=''):
+def build_plt_sheet(wb, plt_tmpl_path, po, today, pallet_items, ship_to=''):
     """
-    Add 'WITH PLT' sheet for palletised items.
-    pallet_items: items from config that have has_pallet=True.
+    Build 'PLT' sheet using SCOSCHE_PLT_TEMPLATE.xlsx for formatting.
+    Sheet order in output: PAC → PLT → INV
     Each item must include: ctns, pcs_per_ctn, nw, gw, desc, item_no,
                             ctns_per_plt, plt_dim, plt_nw_extra, plt_gw_extra.
-    Optional per-item 'po' key overrides the global po on this sheet.
     """
-    ws = wb.create_sheet('WITH PLT')
+    from openpyxl.cell.cell import MergedCell
 
-    # ── Company header (rows 1-10) ────────────────────────────────────────
-    header_lines = list(_PLT_HEADER_A)
+    # ── Load PLT template for formatting reference ───────────────────────
+    plt_tmpl_wb = load_workbook(plt_tmpl_path, data_only=False)
+    tmpl_ws     = plt_tmpl_wb.active   # sheet named 'PLT'
+
+    ws = wb.create_sheet('PLT')
+    ws.page_setup.orientation = 'landscape'
+
+    # Copy column widths (A–T)
+    for col_letter in ['A','B','C','D','E','F','G','H','I','J',
+                        'K','L','M','N','O','P','Q','R','S','T']:
+        if col_letter in tmpl_ws.column_dimensions:
+            ws.column_dimensions[col_letter].width = \
+                tmpl_ws.column_dimensions[col_letter].width
+
+    # Copy merged cells
+    for mc in tmpl_ws.merged_cells.ranges:
+        ws.merge_cells(str(mc))
+
+    # Copy row heights for header rows 1-11
+    for r in range(1, 12):
+        if r in tmpl_ws.row_dimensions and tmpl_ws.row_dimensions[r].height:
+            ws.row_dimensions[r].height = tmpl_ws.row_dimensions[r].height
+
+    # Default heights for data/subtotal rows from template rows 12/13
+    _data_h = (tmpl_ws.row_dimensions[12].height
+               if 12 in tmpl_ws.row_dimensions and tmpl_ws.row_dimensions[12].height
+               else 43.0)
+    _sub_h  = (tmpl_ws.row_dimensions[13].height
+               if 13 in tmpl_ws.row_dimensions and tmpl_ws.row_dimensions[13].height
+               else 15.5)
+
+    # Copy static header rows 1–11 (skip MergedCell stubs)
+    for row in tmpl_ws.iter_rows(min_row=1, max_row=11):
+        for src in row:
+            if isinstance(src, MergedCell):
+                continue
+            dst = ws.cell(row=src.row, column=src.column)
+            dst.value = src.value
+            copy_cell_style(src, dst)
+
+    # Override dynamic header fields
     if ship_to:
-        header_lines[5] = f'SHIP TO: {ship_to}'   # 與 PAC 頁同步
-    for r, text in enumerate(header_lines, start=1):
-        ws.cell(row=r, column=1).value = text
+        ws['A6'].value = f'SHIP TO: {ship_to}'
+    ws['Q7'].value = 'INV: '
+    ws['Q8'].value = f'PO: {po}'
+    ws['Q9'].value = f'PRINT AT: {today}'
 
-    ws['Q7']  = 'INV: '
-    ws['Q8']  = f'PO: {po}'
-    ws['Q9']  = f'PRINT AT: {today}'
-    ws['A10'] = 'PAYMENT TERM: T/T NET ETD 75DAYS'
-    ws['Q10'] = 'CURRENCY: USD'
-
-    # ── Column headers (row 11) ──────────────────────────────────────────
-    for col, label in _PLT_COL_HEADERS:
-        ws.cell(row=11, column=col).value = label
-
-    # ── Data rows (2 rows per item: data + subtotal) ─────────────────────
+    # ── Data rows (2 rows per item: data + subtotal) ──────────────────────
     n             = len(pallet_items)
     first_dr      = 12
     data_rows     = []
     subtotal_rows = []
+    plt_cumulative = 0
+
+    def _num(v):
+        return int(v) if v == int(v) else v
 
     for idx, item in enumerate(pallet_items):
         dr = first_dr + idx * 2
@@ -224,19 +230,37 @@ def build_with_plt_sheet(wb, po, today, pallet_items, ship_to=''):
         data_rows.append(dr)
         subtotal_rows.append(sr)
 
+        ws.row_dimensions[dr].height = _data_h
+        ws.row_dimensions[sr].height = _sub_h
+
         item_po      = item.get('po') or po
+        ctns         = item.get('ctns', 0)
         ctns_per_plt = item.get('ctns_per_plt', 1)
         plt_dim      = item.get('plt_dim', '')
         plt_nw_extra = item.get('plt_nw_extra') or 0
         plt_gw_extra = item.get('plt_gw_extra') or 0
 
-        # Data row
-        ws.cell(dr, 1).value  = 1
-        ws.cell(dr, 2).value  = '-'
-        ws.cell(dr, 3).value  = item['ctns']
-        ws.cell(dr, 4).value  = f'=C{dr}-A{dr}+1'       # # of CTNs
-        ws.cell(dr, 5).value  = f'=D{dr}/M{dr}'          # # of Pallets
-        ws.cell(dr, 9).value  = item_po
+        # Cumulative pallet numbering (F, H columns)
+        n_plts     = math.ceil(ctns / ctns_per_plt) if ctns_per_plt else 0
+        plt_start  = plt_cumulative + 1
+        plt_end    = plt_cumulative + n_plts
+        plt_cumulative = plt_end
+
+        # Apply style from template row 12 to data row
+        for c in range(1, 20):
+            tc = tmpl_ws.cell(12, c)
+            if not isinstance(tc, MergedCell):
+                copy_cell_style(tc, ws.cell(dr, c))
+
+        ws.cell(dr,  1).value = 1
+        ws.cell(dr,  2).value = '-'
+        ws.cell(dr,  3).value = ctns
+        ws.cell(dr,  4).value = f'=C{dr}-A{dr}+1'
+        ws.cell(dr,  5).value = f'=D{dr}/M{dr}'
+        ws.cell(dr,  6).value = plt_start          # Pallet# start
+        ws.cell(dr,  7).value = '-'
+        ws.cell(dr,  8).value = plt_end            # Pallet# end
+        ws.cell(dr,  9).value = (int(item_po) if str(item_po).isdigit() else item_po)
         ws.cell(dr, 10).value = item['item_no']
         ws.cell(dr, 11).value = item.get('desc', '')
         ws.cell(dr, 12).value = item.get('pcs_per_ctn', '')
@@ -244,27 +268,16 @@ def build_with_plt_sheet(wb, po, today, pallet_items, ship_to=''):
         ws.cell(dr, 14).value = item.get('nw', '')
         ws.cell(dr, 15).value = item.get('gw', '')
         ws.cell(dr, 16).value = plt_dim
-
-        # CBM w/pallet: ={plt_dim}/1000000  (e.g. =121.92*101.6*71.2/1000000)
         ws.cell(dr, 17).value = f'={plt_dim}/1000000'
+        ws.cell(dr, 18).value = f'=N{dr}*M{dr}' + (f'+{_num(plt_nw_extra)}' if plt_nw_extra else '')
+        ws.cell(dr, 19).value = f'=O{dr}*M{dr}' + (f'+{_num(plt_gw_extra)}' if plt_gw_extra else '')
 
-        def _num(v):
-            """Format extra weight: int if whole number, else float."""
-            return int(v) if v == int(v) else v
+        # Apply style from template row 13 to subtotal row
+        for c in range(1, 20):
+            tc = tmpl_ws.cell(13, c)
+            if not isinstance(tc, MergedCell):
+                copy_cell_style(tc, ws.cell(sr, c))
 
-        # N.W. w/pallet: =N{dr}*M{dr} [+extra]
-        nw_formula = f'=N{dr}*M{dr}'
-        if plt_nw_extra:
-            nw_formula += f'+{_num(plt_nw_extra)}'
-        ws.cell(dr, 18).value = nw_formula
-
-        # G.W. w/pallet: =O{dr}*M{dr} [+extra]
-        gw_formula = f'=O{dr}*M{dr}'
-        if plt_gw_extra:
-            gw_formula += f'+{_num(plt_gw_extra)}'
-        ws.cell(dr, 19).value = gw_formula
-
-        # Subtotal row
         ws.cell(sr, 11).value = 'SUBTOTAL:'
         ws.cell(sr, 12).value = f'=L{dr}*D{dr}'
         ws.cell(sr, 17).value = f'=Q{dr}*E{dr}'
@@ -274,9 +287,15 @@ def build_with_plt_sheet(wb, po, today, pallet_items, ship_to=''):
     # ── TOTAL row ────────────────────────────────────────────────────────
     total_row = first_dr + n * 2
     last_dr   = data_rows[-1]
+    ws.row_dimensions[total_row].height = _sub_h
 
-    ws.cell(total_row, 4).value  = f'=SUM(D{first_dr}:D{last_dr})'
-    ws.cell(total_row, 5).value  = f'=SUM(E{first_dr}:E{last_dr})'
+    for c in range(1, 20):
+        tc = tmpl_ws.cell(13, c)
+        if not isinstance(tc, MergedCell):
+            copy_cell_style(tc, ws.cell(total_row, c))
+
+    ws.cell(total_row,  4).value = f'=SUM(D{first_dr}:D{last_dr})'
+    ws.cell(total_row,  5).value = f'=SUM(E{first_dr}:E{last_dr})'
     ws.cell(total_row, 11).value = 'TOTAL:'
     ws.cell(total_row, 12).value = '=' + '+'.join(f'L{r}' for r in subtotal_rows)
     ws.cell(total_row, 17).value = '=' + '+'.join(f'Q{r}' for r in subtotal_rows)
@@ -407,11 +426,15 @@ def build_packing_list(config_path):
             write_shipping_mark(ws, cur_row, MARK_COLS[col_idx], item, po)
         cur_row += group_height + 1  # +1 blank row between groups
 
-    # ── WITH PLT sheet (generated when any item has pallet data) ─────────
+    # ── PLT sheet (generated when any item has pallet data) ──────────────
     pallet_items = [item for item in items if item.get('has_pallet')]
     if pallet_items:
-        build_with_plt_sheet(wb, po, today, pallet_items, ship_to)
-        print(f'  WITH PLT sheet: {len(pallet_items)} item(s)')
+        plt_tmpl_path = str(Path(template).parent / 'SCOSCHE_PLT_TEMPLATE.xlsx')
+        build_plt_sheet(wb, plt_tmpl_path, po, today, pallet_items, ship_to)
+        # Ensure sheet order: PAC → PLT → INV
+        _order = ['PAC', 'PLT', 'INV']
+        wb._sheets.sort(key=lambda s: _order.index(s.title) if s.title in _order else 99)
+        print(f'  PLT sheet: {len(pallet_items)} item(s)')
 
     # -- Save --
     wb.save(tmp)
